@@ -488,6 +488,33 @@ private func ephemeralReplacementContextMenuItems(chatPresentationInterfaceState
     }
 }
 
+// A deleted message no longer exists on the server, so everything that addresses it there would fail.
+private func chogramDeletedMessageContextMenuItems(chatPresentationInterfaceState: ChatPresentationInterfaceState, context: AccountContext, messages: [EngineRawMessage], controllerInteraction: ChatControllerInteraction) -> ContextController.Items {
+    var actions: [ContextMenuItem] = []
+    
+    if messages.count == 1, let message = messages.first, !message.text.isEmpty, !chatPresentationInterfaceState.copyProtectionEnabled, !message.isCopyProtected() {
+        actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_ContextMenuCopy, icon: { theme in
+            return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Copy"), color: theme.contextMenu.primaryColor)
+        }, action: { _, f in
+            let entities = (message.attributes.first(where: { $0 is TextEntitiesMessageAttribute }) as? TextEntitiesMessageAttribute)?.entities
+            storeMessageTextInPasteboard(message.text, entities: entities)
+            Queue.mainQueue().after(0.2, {
+                controllerInteraction.displayUndo(.copy(text: chatPresentationInterfaceState.strings.Conversation_MessageCopied))
+            })
+            f(.default)
+        })))
+    }
+    
+    actions.append(.action(ContextMenuActionItem(text: "Удалить насовсем", textColor: .destructive, icon: { theme in
+        return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Delete"), color: theme.contextMenu.destructiveColor)
+    }, action: { _, f in
+        f(.default)
+        let _ = context.engine.messages.chogramRemoveDeletedMessages(ids: messages.map(\.id)).startStandalone()
+    })))
+    
+    return ContextController.Items(content: .list(actions))
+}
+
 func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState: ChatPresentationInterfaceState, context: AccountContext, messages: [EngineRawMessage], controllerInteraction: ChatControllerInteraction?, selectAll: Bool, interfaceInteraction: ChatPanelInterfaceInteraction?, readStats: MessageReadStats? = nil, messageNode: ChatMessageItemView? = nil) -> Signal<ContextController.Items, NoError> {
     guard let interfaceInteraction = interfaceInteraction, let controllerInteraction = controllerInteraction else {
         return .single(ContextController.Items(content: .list([])))
@@ -499,6 +526,9 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
         if message.id.namespace == Namespaces.Message.Local && message.attributes.contains(where: { $0 is TypingDraftMessageAttribute }) {
             return .single(ContextController.Items(content: .list([])))
         }
+    }
+    if messages.contains(where: { $0.attributes.contains(where: { $0 is ChogramDeletedMessageAttribute }) }) {
+        return .single(chogramDeletedMessageContextMenuItems(chatPresentationInterfaceState: chatPresentationInterfaceState, context: context, messages: messages, controllerInteraction: controllerInteraction))
     }
     if let message = messages.first, message.activeEphemeralReplacementMessage != nil {
         return ephemeralReplacementContextMenuItems(chatPresentationInterfaceState: chatPresentationInterfaceState, context: context, message: message, controllerInteraction: controllerInteraction, interfaceInteraction: interfaceInteraction)

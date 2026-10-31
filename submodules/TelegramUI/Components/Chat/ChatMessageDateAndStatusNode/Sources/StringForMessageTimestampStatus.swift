@@ -251,5 +251,22 @@ public func stringForMessageTimestampStatus(
         }
     }
     
+    if let deletedAttribute = message.attributes.first(where: { $0 is ChogramDeletedMessageAttribute }) as? ChogramDeletedMessageAttribute {
+        let settings = ChogramSettings.current
+        var components: [String] = []
+        if !settings.deletedMessageIcon.isEmpty {
+            components.append(settings.deletedMessageIcon)
+        }
+        if !settings.deletedMessageLabel.isEmpty {
+            components.append(settings.deletedMessageLabel)
+        }
+        if settings.showDeletionTime {
+            components.append(stringForMessageTimestamp(timestamp: deletedAttribute.date, dateTimeFormat: dateTimeFormat))
+        }
+        if !components.isEmpty {
+            dateText = "\(components.joined(separator: " ")) · \(dateText)"
+        }
+    }
+    
     return dateText
 }

@@ -655,6 +655,7 @@ open class ChatMessageItemView: ListViewItemNode, ChatMessageItemNodeProtocol {
     public let layoutConstants = (ChatMessageItemLayoutConstants.compact, ChatMessageItemLayoutConstants.regular)
     
     open var item: ChatMessageItem?
+    private var isChogramDeletedAppearanceApplied = false
     open var accessibilityData: ChatMessageAccessibilityData?
     open var safeInsets = UIEdgeInsets()
     open var scrollTiltProvider: ((CFTimeInterval) -> Float)?
@@ -691,6 +692,37 @@ open class ChatMessageItemView: ListViewItemNode, ChatMessageItemNodeProtocol {
     
     open func setupItem(_ item: ChatMessageItem, synchronousLoad: Bool) {
         self.item = item
+        
+        let isChogramDeleted = item.content.firstMessage.attributes.contains(where: { $0 is ChogramDeletedMessageAttribute })
+        if isChogramDeleted || self.isChogramDeletedAppearanceApplied {
+            // A new item node is set up off the main thread, where its layer cannot be touched.
+            Queue.mainQueue().async { [weak self] in
+                self?.updateChogramDeletedAppearance(isDeleted: isChogramDeleted)
+            }
+        }
+    }
+    
+    private func updateChogramDeletedAppearance(isDeleted: Bool) {
+        self.isChogramDeletedAppearanceApplied = isDeleted
+        
+        var filters: [Any]?
+        var alpha: CGFloat = 1.0
+        if isDeleted {
+            let settings = ChogramSettings.current
+            switch settings.deletedMessageAppearance {
+            case .gray:
+                if let filter = CALayer.monochrome() {
+                    filters = [filter]
+                }
+                alpha = CGFloat(settings.deletedMessageOpacity) / 100.0
+            case .faded:
+                alpha = CGFloat(settings.deletedMessageOpacity) / 100.0
+            case .labelOnly:
+                break
+            }
+        }
+        self.layer.filters = filters
+        self.alpha = alpha
     }
     
     open func updateAccessibilityData(_ accessibilityData: ChatMessageAccessibilityData) {
