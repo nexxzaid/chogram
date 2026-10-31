@@ -150,6 +150,8 @@ extension PeerInfoScreenNode {
             push(dataAndStorageController(context: self.context))
         case .appearance:
             push(themeSettingsController(context: self.context))
+        case .chogram:
+            push(chogramSettingsController(context: self.context))
         case .language:
             push(LocalizationListController(context: self.context))
         case .premium:

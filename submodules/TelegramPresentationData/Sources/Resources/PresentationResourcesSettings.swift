@@ -126,6 +126,22 @@ public struct PresentationResourcesSettings {
     public static let notifications = renderSettingsIcon(name: "Item List/Icons/Notifications", backgroundColors: [colorRed])
     public static let security = renderSettingsIcon(name: "Item List/Icons/Privacy", backgroundColors: [colorGray])
     public static let dataAndStorage = renderSettingsIcon(name: "Item List/Icons/Data", backgroundColors: [colorGreen])
+    public static let chogram = generateImage(CGSize(width: 30.0, height: 30.0), rotatedContext: { size, context in
+        let bounds = CGRect(origin: CGPoint(), size: size)
+        context.clear(bounds)
+        context.addPath(UIBezierPath(roundedRect: bounds, cornerRadius: 8.0).cgPath)
+        context.setFillColor(UIColor.black.cgColor)
+        context.fillPath()
+        
+        let text = NSAttributedString(string: "чо?", attributes: [
+            .font: UIFont.systemFont(ofSize: 12.0, weight: .heavy),
+            .foregroundColor: UIColor.white
+        ])
+        let textSize = text.size()
+        UIGraphicsPushContext(context)
+        text.draw(at: CGPoint(x: (size.width - textSize.width) * 0.5, y: (size.height - textSize.height) * 0.5))
+        UIGraphicsPopContext()
+    })
     public static let appearance = renderSettingsIcon(name: "Item List/Icons/Appearance", backgroundColors: [colorLightBlue])
     public static let language = renderSettingsIcon(name: "Item List/Icons/Language", backgroundColors: [colorPurple])
     public static let powerSaving = renderSettingsIcon(name: "Item List/Icons/PowerSaving", backgroundColors: [colorOrange])
