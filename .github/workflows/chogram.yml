@@ -80,6 +80,7 @@ jobs:
             --codesigningInformationPath=build-system/chogram-codesigning \
             --configuration=release_arm64 \
             --disableExtensions \
+            --continueOnError \
             --buildNumber="$BUILD_NUMBER" \
             --outputBuildArtifactsPath=build/artifacts
 
