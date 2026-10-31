@@ -119,7 +119,7 @@ func managedSynchronizeViewStoriesOperations(postbox: Postbox, network: Network,
 }
 
 private func pushStoriesAreSeen(postbox: Postbox, network: Network, stateManager: AccountStateManager, peer: Peer, operation: SynchronizeViewStoriesOperation) -> Signal<Void, NoError> {
-    guard let inputPeer = apiInputPeer(peer) else {
+    guard let inputPeer = apiInputPeer(peer), !ChogramSettings.current.hidesStoryViews else {
         return .complete()
     }
     return network.request(Api.functions.stories.readStories(peer: inputPeer, maxId: operation.storyId))

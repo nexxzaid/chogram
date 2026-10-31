@@ -175,6 +175,10 @@ private func requestActivity(postbox: Postbox, network: Network, accountPeerId: 
                 }
             }
             
+            if ChogramSettings.current.hidesTyping {
+                return .complete()
+            }
+            
             if let inputPeer = apiInputPeer(peer) {
                 var flags: Int32 = 0
                 let topMessageId = threadId.flatMap { Int32(clamping: $0) }

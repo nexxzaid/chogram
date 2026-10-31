@@ -14,6 +14,12 @@ public struct ChogramSettings: Equatable {
     private static let deletedMessageIconKey = "chogram.deletedMessageIcon"
     private static let deletedMessageLabelKey = "chogram.deletedMessageLabel"
     private static let showDeletionTimeKey = "chogram.showDeletionTime"
+    private static let hideAdsKey = "chogram.hideAds"
+    private static let ghostModeKey = "chogram.ghostMode"
+    private static let ghostHideOnlineKey = "chogram.ghostHideOnline"
+    private static let ghostHideReadKey = "chogram.ghostHideRead"
+    private static let ghostHideStoryViewsKey = "chogram.ghostHideStoryViews"
+    private static let ghostHideTypingKey = "chogram.ghostHideTyping"
 
     public var keepDeletedMessages: Bool
     public var deletedMessageAppearance: DeletedMessageAppearance
@@ -21,6 +27,28 @@ public struct ChogramSettings: Equatable {
     public var deletedMessageIcon: String
     public var deletedMessageLabel: String
     public var showDeletionTime: Bool
+    public var hideAds: Bool
+    public var ghostMode: Bool
+    public var ghostHideOnline: Bool
+    public var ghostHideRead: Bool
+    public var ghostHideStoryViews: Bool
+    public var ghostHideTyping: Bool
+
+    public var hidesOnline: Bool {
+        return self.ghostMode && self.ghostHideOnline
+    }
+
+    public var hidesReadReceipts: Bool {
+        return self.ghostMode && self.ghostHideRead
+    }
+
+    public var hidesStoryViews: Bool {
+        return self.ghostMode && self.ghostHideStoryViews
+    }
+
+    public var hidesTyping: Bool {
+        return self.ghostMode && self.ghostHideTyping
+    }
 
     public static var current: ChogramSettings {
         let defaults = UserDefaults.standard
@@ -30,7 +58,13 @@ public struct ChogramSettings: Equatable {
             deletedMessageOpacity: defaults.object(forKey: deletedMessageOpacityKey) as? Int ?? 70,
             deletedMessageIcon: defaults.string(forKey: deletedMessageIconKey) ?? "🗑",
             deletedMessageLabel: defaults.string(forKey: deletedMessageLabelKey) ?? "удалено",
-            showDeletionTime: defaults.object(forKey: showDeletionTimeKey) as? Bool ?? true
+            showDeletionTime: defaults.object(forKey: showDeletionTimeKey) as? Bool ?? true,
+            hideAds: defaults.object(forKey: hideAdsKey) as? Bool ?? true,
+            ghostMode: defaults.object(forKey: ghostModeKey) as? Bool ?? false,
+            ghostHideOnline: defaults.object(forKey: ghostHideOnlineKey) as? Bool ?? true,
+            ghostHideRead: defaults.object(forKey: ghostHideReadKey) as? Bool ?? true,
+            ghostHideStoryViews: defaults.object(forKey: ghostHideStoryViewsKey) as? Bool ?? true,
+            ghostHideTyping: defaults.object(forKey: ghostHideTypingKey) as? Bool ?? true
         )
     }
 
@@ -42,5 +76,11 @@ public struct ChogramSettings: Equatable {
         defaults.set(self.deletedMessageIcon, forKey: ChogramSettings.deletedMessageIconKey)
         defaults.set(self.deletedMessageLabel, forKey: ChogramSettings.deletedMessageLabelKey)
         defaults.set(self.showDeletionTime, forKey: ChogramSettings.showDeletionTimeKey)
+        defaults.set(self.hideAds, forKey: ChogramSettings.hideAdsKey)
+        defaults.set(self.ghostMode, forKey: ChogramSettings.ghostModeKey)
+        defaults.set(self.ghostHideOnline, forKey: ChogramSettings.ghostHideOnlineKey)
+        defaults.set(self.ghostHideRead, forKey: ChogramSettings.ghostHideReadKey)
+        defaults.set(self.ghostHideStoryViews, forKey: ChogramSettings.ghostHideStoryViewsKey)
+        defaults.set(self.ghostHideTyping, forKey: ChogramSettings.ghostHideTypingKey)
     }
 }

@@ -26,6 +26,7 @@ private final class ChogramSettingsControllerArguments {
     let updateLabel: (String) -> Void
     let updateShowDeletionTime: (Bool) -> Void
     let clearDeletedMessages: () -> Void
+    let updateSettings: (@escaping (inout ChogramSettings) -> Void) -> Void
 
     init(
         updateKeepDeletedMessages: @escaping (Bool) -> Void,
@@ -34,7 +35,8 @@ private final class ChogramSettingsControllerArguments {
         updateIcon: @escaping (String) -> Void,
         updateLabel: @escaping (String) -> Void,
         updateShowDeletionTime: @escaping (Bool) -> Void,
-        clearDeletedMessages: @escaping () -> Void
+        clearDeletedMessages: @escaping () -> Void,
+        updateSettings: @escaping (@escaping (inout ChogramSettings) -> Void) -> Void
     ) {
         self.updateKeepDeletedMessages = updateKeepDeletedMessages
         self.updateAppearance = updateAppearance
@@ -43,10 +45,13 @@ private final class ChogramSettingsControllerArguments {
         self.updateLabel = updateLabel
         self.updateShowDeletionTime = updateShowDeletionTime
         self.clearDeletedMessages = clearDeletedMessages
+        self.updateSettings = updateSettings
     }
 }
 
 private enum ChogramSettingsSection: Int32 {
+    case ghost
+    case ads
     case keep
     case appearance
     case opacity
@@ -56,6 +61,17 @@ private enum ChogramSettingsSection: Int32 {
 }
 
 private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
+    case ghostHeader
+    case ghostMode(Bool)
+    case ghostHideOnline(Bool)
+    case ghostHideRead(Bool)
+    case ghostHideStoryViews(Bool)
+    case ghostHideTyping(Bool)
+    case ghostFooter
+    
+    case hideAds(Bool)
+    case adsFooter
+    
     case keepHeader
     case keepValue(Bool)
     case keepFooter
@@ -79,6 +95,10 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
 
     var section: ItemListSectionId {
         switch self {
+        case .ghostHeader, .ghostMode, .ghostHideOnline, .ghostHideRead, .ghostHideStoryViews, .ghostHideTyping, .ghostFooter:
+            return ChogramSettingsSection.ghost.rawValue
+        case .hideAds, .adsFooter:
+            return ChogramSettingsSection.ads.rawValue
         case .keepHeader, .keepValue, .keepFooter:
             return ChogramSettingsSection.keep.rawValue
         case .appearanceHeader, .appearanceValue:
@@ -96,6 +116,24 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
 
     var stableId: Int32 {
         switch self {
+        case .ghostHeader:
+            return -20
+        case .ghostMode:
+            return -19
+        case .ghostHideOnline:
+            return -18
+        case .ghostHideRead:
+            return -17
+        case .ghostHideStoryViews:
+            return -16
+        case .ghostHideTyping:
+            return -15
+        case .ghostFooter:
+            return -14
+        case .hideAds:
+            return -10
+        case .adsFooter:
+            return -9
         case .keepHeader:
             return 0
         case .keepValue:
@@ -136,6 +174,36 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
     func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
         let arguments = arguments as! ChogramSettingsControllerArguments
         switch self {
+        case .ghostHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "РЕЖИМ ПРИЗРАКА", sectionId: self.section)
+        case let .ghostMode(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Режим призрака", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.updateSettings { $0.ghostMode = value }
+            })
+        case let .ghostHideOnline(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Не показывать онлайн", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.updateSettings { $0.ghostHideOnline = value }
+            })
+        case let .ghostHideRead(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Не читать сообщения", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.updateSettings { $0.ghostHideRead = value }
+            })
+        case let .ghostHideStoryViews(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Не читать истории", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.updateSettings { $0.ghostHideStoryViews = value }
+            })
+        case let .ghostHideTyping(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Не показывать набор текста", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.updateSettings { $0.ghostHideTyping = value }
+            })
+        case .ghostFooter:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Отправка сообщения всё равно покажет тебя в сети: так работает сервер Telegram. Реакция на историю отметит её просмотренной. Прочитанные в режиме призрака чаты позже могут снова стать непрочитанными. Секретные чаты не затрагиваются."), sectionId: self.section)
+        case let .hideAds(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Без рекламы", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.updateSettings { $0.hideAds = value }
+            })
+        case .adsFooter:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Убирает спонсорские сообщения в каналах и рекламу в поиске."), sectionId: self.section)
         case .keepHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "УДАЛЁННЫЕ СООБЩЕНИЯ", sectionId: self.section)
         case let .keepValue(value):
@@ -204,6 +272,19 @@ private func chogramDeletedMessagePreview(settings: ChogramSettings) -> String {
 
 private func chogramSettingsControllerEntries(settings: ChogramSettings, deletedMessagesCount: Int) -> [ChogramSettingsControllerEntry] {
     var entries: [ChogramSettingsControllerEntry] = []
+
+    entries.append(.ghostHeader)
+    entries.append(.ghostMode(settings.ghostMode))
+    if settings.ghostMode {
+        entries.append(.ghostHideOnline(settings.ghostHideOnline))
+        entries.append(.ghostHideRead(settings.ghostHideRead))
+        entries.append(.ghostHideStoryViews(settings.ghostHideStoryViews))
+        entries.append(.ghostHideTyping(settings.ghostHideTyping))
+    }
+    entries.append(.ghostFooter)
+
+    entries.append(.hideAds(settings.hideAds))
+    entries.append(.adsFooter)
 
     entries.append(.keepHeader)
     entries.append(.keepValue(settings.keepDeletedMessages))
@@ -287,7 +368,8 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
                     })
                 })
             ]))
-        }
+        },
+        updateSettings: updateSettings
     )
 
     let signal = combineLatest(queue: .mainQueue(),
