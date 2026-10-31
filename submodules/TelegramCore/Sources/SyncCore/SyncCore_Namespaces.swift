@@ -348,6 +348,7 @@ private enum PreferencesKeyValues: Int32 {
     case webBrowserSettings = 49
     case communitiesState = 50
     case unreadCounterTagsState = 51
+    case chogramDeletedMessages = 1000
 }
 
 public func applicationSpecificPreferencesKey(_ value: Int32) -> ValueBoxKey {
@@ -363,6 +364,12 @@ public func applicationSpecificSharedDataKey(_ value: Int32) -> ValueBoxKey {
 }
 
 public struct PreferencesKeys {
+    public static let chogramDeletedMessages: ValueBoxKey = {
+        let key = ValueBoxKey(length: 4)
+        key.setInt32(0, value: PreferencesKeyValues.chogramDeletedMessages.rawValue)
+        return key
+    }()
+    
     public static let globalNotifications: ValueBoxKey = {
         let key = ValueBoxKey(length: 4)
         key.setInt32(0, value: PreferencesKeyValues.globalNotifications.rawValue)

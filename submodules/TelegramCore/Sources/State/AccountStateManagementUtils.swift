@@ -4596,7 +4596,10 @@ func replayFinalState(
                 upsertEphemeralReplacement(transaction: transaction, anchorMessageId: anchorMessageId, message: message)
             case let .DeleteEphemeralMessages(peerId, ids):
                 deleteEphemeralMessages(transaction: transaction, peerId: peerId, ids: ids)
-            case let .DeleteMessagesWithGlobalIds(ids):
+            case let .DeleteMessagesWithGlobalIds(allIds):
+                let retainedIds = _internal_chogramRetainDeletedMessages(transaction: transaction, accountPeerId: accountPeerId, ids: transaction.messageIdsForGlobalIds(allIds))
+                let retainedGlobalIds = Set(retainedIds.map(\.id))
+                let ids = allIds.filter { !retainedGlobalIds.contains($0) }
                 var resourceIds: [MediaResourceId] = []
                 transaction.deleteMessagesWithGlobalIds(ids, forEachMedia: { media in
                     addMessageMediaResourceIdsToRemove(media: media, resourceIds: &resourceIds)
@@ -4605,7 +4608,9 @@ func replayFinalState(
                     let _ = mediaBox.removeCachedResources(Array(Set(resourceIds)), force: true).start()
                 }
                 deletedMessageIds.append(contentsOf: ids.map { .global($0) })
-            case let .DeleteMessages(ids):
+            case let .DeleteMessages(allIds):
+                let retainedIds = _internal_chogramRetainDeletedMessages(transaction: transaction, accountPeerId: accountPeerId, ids: allIds)
+                let ids = allIds.filter { !retainedIds.contains($0) }
                 _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: { id, add, remove in
                     addMessageThreadStatsDifference(threadKey: id, remove: remove, addedMessagePeer: nil, addedMessageId: nil, isOutgoing: false)
                 })

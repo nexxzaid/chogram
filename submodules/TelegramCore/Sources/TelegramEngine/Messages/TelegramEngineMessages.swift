@@ -209,6 +209,28 @@ public extension TelegramEngine {
             return _internal_deleteMessagesInteractively(account: self.account, messageIds: messageIds, type: type, deleteAllInGroup: deleteAllInGroup)
         }
 
+        public func chogramRemoveDeletedMessages(ids: [MessageId]) -> Signal<Never, NoError> {
+            let mediaBox = self.account.postbox.mediaBox
+            return self.account.postbox.transaction { transaction -> Void in
+                _internal_chogramRemoveDeletedMessages(transaction: transaction, mediaBox: mediaBox, ids: ids)
+            }
+            |> ignoreValues
+        }
+        
+        public func chogramClearDeletedMessages() -> Signal<Never, NoError> {
+            let mediaBox = self.account.postbox.mediaBox
+            return self.account.postbox.transaction { transaction -> Void in
+                _internal_chogramClearDeletedMessages(transaction: transaction, mediaBox: mediaBox)
+            }
+            |> ignoreValues
+        }
+        
+        public func chogramDeletedMessagesCount() -> Signal<Int, NoError> {
+            return self.account.postbox.transaction { transaction -> Int in
+                return _internal_chogramDeletedMessagesCount(transaction: transaction)
+            }
+        }
+
         public func clearHistoryInteractively(peerId: PeerId, threadId: Int64?, type: InteractiveHistoryClearingType) -> Signal<Void, NoError> {
             return _internal_clearHistoryInteractively(postbox: self.account.postbox, peerId: peerId, threadId: threadId, type: type)
         }

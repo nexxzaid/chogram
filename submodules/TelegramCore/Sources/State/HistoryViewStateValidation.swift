@@ -469,6 +469,10 @@ private func hashForMessages(_ messages: [Message], withChannelIds: Bool) -> Int
     let sorted = messages.sorted(by: { $0.index > $1.index })
     
     for message in sorted {
+        if message.attributes.contains(where: { $0 is ChogramDeletedMessageAttribute }) {
+            continue
+        }
+        
         if withChannelIds {
             combineInt64Hash(&acc, with: message.id.peerId)
         }
@@ -955,6 +959,9 @@ private func validateBatch(postbox: Postbox, network: Network, transaction: Tran
                         }
                     
                         for id in removedMessageIds {
+                            if _internal_chogramIsDeletedMessage(transaction: transaction, id: id) {
+                                continue
+                            }
                             if !validMessageIds.contains(id) {
                                 if let tag = tag {
                                     transaction.updateMessage(id, update: { currentMessage in
@@ -1166,6 +1173,9 @@ private func validateReplyThreadBatch(postbox: Postbox, network: Network, transa
                     }
                 
                     for id in removedMessageIds {
+                        if _internal_chogramIsDeletedMessage(transaction: transaction, id: id) {
+                            continue
+                        }
                         if !validMessageIds.contains(id) {
                             _internal_deleteMessages(transaction: transaction, mediaBox: postbox.mediaBox, ids: [id])
                             Logger.shared.log("HistoryValidation", "deleting thread message \(id) in \(id.peerId)")
