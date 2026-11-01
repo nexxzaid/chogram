@@ -20,11 +20,11 @@ private let chogramDeletedMessageAppearances: [(value: ChogramSettings.DeletedMe
 
 private let chogramAppIcons: [(name: String?, imageName: String, title: String)] = [
     (nil, "Chogram/AppIconClassic", "Классика"),
-    ("ChogramMint", "Chogram/AppIconMint", "Мята"),
-    ("ChogramWhite", "Chogram/AppIconWhite", "Белая"),
-    ("ChogramNight", "Chogram/AppIconNight", "Ночь"),
-    ("ChogramWave", "Chogram/AppIconWave", "Волна"),
-    ("ChogramOutline", "Chogram/AppIconOutline", "Контур")
+    ("ChogramMintIcon", "Chogram/AppIconMint", "Мята"),
+    ("ChogramWhiteIcon", "Chogram/AppIconWhite", "Белая"),
+    ("ChogramNightIcon", "Chogram/AppIconNight", "Ночь"),
+    ("ChogramWaveIcon", "Chogram/AppIconWave", "Волна"),
+    ("ChogramOutlineIcon", "Chogram/AppIconOutline", "Контур")
 ]
 
 private let chogramThemeCache = Atomic<(base: PresentationTheme, theme: PresentationTheme)?>(value: nil)

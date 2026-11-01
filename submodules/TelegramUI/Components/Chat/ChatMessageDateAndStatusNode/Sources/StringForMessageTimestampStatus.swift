@@ -75,7 +75,7 @@ private let chogramDeletedMessageIcons: [String: (marker: String, imageName: Str
 func messageDateAttributedString(_ text: String, font: UIFont, textColor: UIColor) -> NSAttributedString {
     let result = NSMutableAttributedString(string: text, attributes: [.font: font, .foregroundColor: textColor])
     for icon in chogramDeletedMessageIcons.values {
-        let range = (text as NSString).range(of: icon.marker)
+        let range = (text as NSString).range(of: icon.marker, options: .literal)
         if range.location != NSNotFound, let image = UIImage(bundleImageName: icon.imageName) {
             result.replaceCharacters(in: range, with: NSAttributedString(string: "\u{2003}", attributes: [.font: font, .foregroundColor: textColor, .attachment: image]))
         }
