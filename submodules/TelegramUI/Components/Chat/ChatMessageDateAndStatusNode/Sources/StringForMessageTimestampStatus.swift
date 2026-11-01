@@ -1,4 +1,6 @@
 import Foundation
+import AppBundle
+import UIKit
 import TelegramCore
 import TelegramPresentationData
 import TelegramUIPreferences
@@ -59,6 +61,26 @@ private func monthAtIndex(_ index: Int, strings: PresentationStrings) -> String 
     default:
         return ""
     }
+}
+
+// The icon setting keeps its original emoji values as identifiers. A private-use character carries
+// the choice through the plain date string to where the text is built.
+private let chogramDeletedMessageIcons: [String: (marker: String, imageName: String)] = [
+    "🗑": ("\u{E0C0}", "Chogram/StatusTrash"),
+    "👻": ("\u{E0C1}", "Chogram/StatusGhost"),
+    "👀": ("\u{E0C2}", "Chogram/StatusEye"),
+    "❌": ("\u{E0C3}", "Chogram/StatusCross")
+]
+
+func messageDateAttributedString(_ text: String, font: UIFont, textColor: UIColor) -> NSAttributedString {
+    let result = NSMutableAttributedString(string: text, attributes: [.font: font, .foregroundColor: textColor])
+    for icon in chogramDeletedMessageIcons.values {
+        let range = (text as NSString).range(of: icon.marker)
+        if range.location != NSNotFound, let image = UIImage(bundleImageName: icon.imageName) {
+            result.replaceCharacters(in: range, with: NSAttributedString(string: "\u{2003}", attributes: [.font: font, .foregroundColor: textColor, .attachment: image]))
+        }
+    }
+    return result
 }
 
 public func stringForMessageTimestampStatus(
@@ -254,8 +276,8 @@ public func stringForMessageTimestampStatus(
     if let deletedAttribute = message.attributes.first(where: { $0 is ChogramDeletedMessageAttribute }) as? ChogramDeletedMessageAttribute {
         let settings = ChogramSettings.current
         var components: [String] = []
-        if !settings.deletedMessageIcon.isEmpty {
-            components.append(settings.deletedMessageIcon)
+        if let icon = chogramDeletedMessageIcons[settings.deletedMessageIcon] {
+            components.append(icon.marker)
         }
         if !settings.deletedMessageLabel.isEmpty {
             components.append(settings.deletedMessageLabel)
