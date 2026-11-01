@@ -81,6 +81,7 @@ jobs:
             --configuration=release_arm64 \
             --disableExtensions \
             --continueOnError \
+            --enableParallelSwiftmoduleGeneration \
             --buildNumber="$BUILD_NUMBER" \
             --outputBuildArtifactsPath=build/artifacts
 
