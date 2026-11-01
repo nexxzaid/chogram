@@ -7,6 +7,7 @@ import TelegramPresentationData
 import ItemListUI
 import PresentationDataUtils
 import AccountContext
+import AppBundle
 
 private let chogramDeletedMessageIcons: [(value: String, title: String)] = [
     ("🗑", "🗑 Корзина"),
@@ -23,6 +24,21 @@ private let chogramDeletedMessageAppearances: [(value: ChogramSettings.DeletedMe
     (.faded, "Полупрозрачное"),
     (.labelOnly, "Обычное")
 ]
+
+private func chogramPresentationData(_ presentationData: PresentationData) -> PresentationData {
+    let theme = presentationData.theme
+    let accentColor = theme.overallDarkAppearance ? UIColor(rgb: 0x5EEAD4) : UIColor(rgb: 0x0F8F7E)
+    let list = theme.list.withUpdated(
+        itemAccentColor: accentColor,
+        sectionHeaderTextColor: accentColor,
+        itemSwitchColors: theme.list.itemSwitchColors.withUpdated(positiveColor: accentColor)
+    )
+    return presentationData.withUpdated(theme: PresentationTheme(name: theme.name, index: theme.index, referenceTheme: theme.referenceTheme, overallDarkAppearance: theme.overallDarkAppearance, intro: theme.intro, passcode: theme.passcode, rootController: theme.rootController, list: list, chatList: theme.chatList, chat: theme.chat, actionSheet: theme.actionSheet, contextMenu: theme.contextMenu, inAppNotification: theme.inAppNotification, chart: theme.chart, preview: theme.preview))
+}
+
+private func chogramIcon(_ name: String, presentationData: ItemListPresentationData) -> UIImage? {
+    return generateTintedImage(image: UIImage(bundleImageName: "Chogram/\(name)"), color: presentationData.theme.list.itemAccentColor)
+}
 
 private func chogramAppearanceTitle(_ appearance: ChogramSettings.DeletedMessageAppearance) -> String {
     return chogramDeletedMessageAppearances.first(where: { $0.value == appearance })?.title ?? ""
@@ -104,122 +120,233 @@ private func presentChogramOptions(context: AccountContext, title: String, optio
 private final class ChogramSettingsControllerArguments {
     let store: ChogramSettingsStore
     let openGhostMode: () -> Void
-    let openDeletedMessageAppearance: () -> Void
-    let clearDeletedMessages: () -> Void
-
-    init(store: ChogramSettingsStore, openGhostMode: @escaping () -> Void, openDeletedMessageAppearance: @escaping () -> Void, clearDeletedMessages: @escaping () -> Void) {
+    let openDeletedMessages: () -> Void
+    let openRepository: () -> Void
+    
+    init(store: ChogramSettingsStore, openGhostMode: @escaping () -> Void, openDeletedMessages: @escaping () -> Void, openRepository: @escaping () -> Void) {
         self.store = store
         self.openGhostMode = openGhostMode
-        self.openDeletedMessageAppearance = openDeletedMessageAppearance
-        self.clearDeletedMessages = clearDeletedMessages
+        self.openDeletedMessages = openDeletedMessages
+        self.openRepository = openRepository
     }
 }
 
 private enum ChogramSettingsSection: Int32 {
-    case general
-    case deleted
+    case header
+    case categories
+    case links
 }
 
 private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
-    case ghostMode(Bool)
+    case header(String)
+    
+    case categoriesHeader
+    case ghostMode(String)
+    case deletedMessages(String)
     case hideAds(Bool)
-
-    case deletedHeader
-    case keepDeletedMessages(Bool)
-    case deletedMessageAppearance(String)
-    case clearDeletedMessages(Int)
-    case deletedFooter
-
+    
+    case linksHeader
+    case repository
+    
     var section: ItemListSectionId {
         switch self {
-        case .ghostMode, .hideAds:
-            return ChogramSettingsSection.general.rawValue
-        case .deletedHeader, .keepDeletedMessages, .deletedMessageAppearance, .clearDeletedMessages, .deletedFooter:
-            return ChogramSettingsSection.deleted.rawValue
+        case .header:
+            return ChogramSettingsSection.header.rawValue
+        case .categoriesHeader, .ghostMode, .deletedMessages, .hideAds:
+            return ChogramSettingsSection.categories.rawValue
+        case .linksHeader, .repository:
+            return ChogramSettingsSection.links.rawValue
         }
     }
-
+    
     var stableId: Int32 {
         switch self {
-        case .ghostMode:
+        case .header:
             return 0
-        case .hideAds:
+        case .categoriesHeader:
             return 1
-        case .deletedHeader:
+        case .ghostMode:
             return 2
-        case .keepDeletedMessages:
+        case .deletedMessages:
             return 3
-        case .deletedMessageAppearance:
+        case .hideAds:
             return 4
-        case .clearDeletedMessages:
+        case .linksHeader:
             return 5
-        case .deletedFooter:
+        case .repository:
             return 6
         }
     }
-
+    
     static func <(lhs: ChogramSettingsControllerEntry, rhs: ChogramSettingsControllerEntry) -> Bool {
         return lhs.stableId < rhs.stableId
     }
-
+    
     func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
         let arguments = arguments as! ChogramSettingsControllerArguments
         switch self {
-        case let .ghostMode(value):
-            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: "Режим призрака", label: value ? "Вкл." : "Выкл.", sectionId: self.section, style: .blocks, action: {
+        case let .header(version):
+            return ChogramSettingsHeaderItem(presentationData: presentationData, title: "Чограм", subtitle: version, sectionId: self.section)
+        case .categoriesHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "КАТЕГОРИИ", sectionId: self.section)
+        case let .ghostMode(summary):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Ghost", presentationData: presentationData), title: "Режим призрака", label: summary, sectionId: self.section, style: .blocks, action: {
                 arguments.openGhostMode()
             })
+        case let .deletedMessages(summary):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Trash", presentationData: presentationData), title: "Удалённые сообщения", label: summary, sectionId: self.section, style: .blocks, action: {
+                arguments.openDeletedMessages()
+            })
         case let .hideAds(value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Без рекламы", value: value, sectionId: self.section, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("AdBlock", presentationData: presentationData), title: "Без рекламы", value: value, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.store.update { $0.hideAds = value }
             })
-        case .deletedHeader:
-            return ItemListSectionHeaderItem(presentationData: presentationData, text: "УДАЛЁННЫЕ СООБЩЕНИЯ", sectionId: self.section)
-        case let .keepDeletedMessages(value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Сохранять удалённые", value: value, sectionId: self.section, style: .blocks, updated: { value in
-                arguments.store.update { $0.keepDeletedMessages = value }
+        case .linksHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "ССЫЛКИ", sectionId: self.section)
+        case .repository:
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Link", presentationData: presentationData), title: "Исходный код", label: "GitHub", sectionId: self.section, style: .blocks, action: {
+                arguments.openRepository()
             })
-        case let .deletedMessageAppearance(summary):
-            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: "Внешний вид", label: summary, sectionId: self.section, style: .blocks, action: {
-                arguments.openDeletedMessageAppearance()
-            })
-        case let .clearDeletedMessages(count):
-            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: "Очистить сохранённые (\(count))", kind: count == 0 ? .disabled : .destructive, alignment: .natural, sectionId: self.section, style: .blocks, action: {
-                arguments.clearDeletedMessages()
-            })
-        case .deletedFooter:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Видны только тебе. Секретные чаты и сообщения с таймером не сохраняются."), sectionId: self.section)
         }
     }
 }
 
-private func chogramSettingsControllerEntries(settings: ChogramSettings, deletedMessagesCount: Int) -> [ChogramSettingsControllerEntry] {
+private func chogramGhostSummary(settings: ChogramSettings) -> String {
+    guard settings.ghostMode else {
+        return "Выкл."
+    }
+    let enabledCount = [settings.ghostHideOnline, settings.ghostHideRead, settings.ghostHideStoryViews, settings.ghostHideTyping].filter({ $0 }).count
+    return "\(enabledCount) из 4"
+}
+
+private func chogramVersionString() -> String {
+    let info = Bundle.main.infoDictionary
+    let version = info?["CFBundleShortVersionString"] as? String ?? ""
+    let build = info?["CFBundleVersion"] as? String ?? ""
+    return "\(version) (\(build))"
+}
+
+private func chogramSettingsControllerEntries(settings: ChogramSettings) -> [ChogramSettingsControllerEntry] {
     return [
-        .ghostMode(settings.ghostMode),
+        .header(chogramVersionString()),
+        .categoriesHeader,
+        .ghostMode(chogramGhostSummary(settings: settings)),
+        .deletedMessages(settings.keepDeletedMessages ? "Вкл." : "Выкл."),
         .hideAds(settings.hideAds),
-        .deletedHeader,
-        .keepDeletedMessages(settings.keepDeletedMessages),
-        .deletedMessageAppearance(chogramAppearanceSummary(settings: settings)),
-        .clearDeletedMessages(deletedMessagesCount),
-        .deletedFooter
+        .linksHeader,
+        .repository
     ]
 }
 
 public func chogramSettingsController(context: AccountContext) -> ViewController {
     let store = ChogramSettingsStore()
-
-    let deletedMessagesCountPromise = Promise<Int>()
-    deletedMessagesCountPromise.set(context.engine.messages.chogramDeletedMessagesCount())
-
+    
     var pushControllerImpl: ((ViewController) -> Void)?
-    var presentControllerImpl: ((ViewController) -> Void)?
-
+    
     let arguments = ChogramSettingsControllerArguments(
         store: store,
         openGhostMode: {
             pushControllerImpl?(chogramGhostModeController(context: context, store: store))
         },
-        openDeletedMessageAppearance: {
+        openDeletedMessages: {
+            pushControllerImpl?(chogramDeletedMessagesController(context: context, store: store))
+        },
+        openRepository: {
+            context.sharedContext.applicationBindings.openUrl("https://github.com/nexxzaid/chogram")
+        }
+    )
+    
+    let signal = combineLatest(queue: .mainQueue(),
+        context.sharedContext.presentationData,
+        store.settings
+    )
+    |> map { presentationData, settings -> (ItemListControllerState, (ItemListNodeState, Any)) in
+        let presentationData = chogramPresentationData(presentationData)
+        let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Чограм"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
+        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: chogramSettingsControllerEntries(settings: settings), style: .blocks, animateChanges: true)
+        
+        return (controllerState, (listState, arguments))
+    }
+    
+    let controller = ItemListController(context: context, state: signal)
+    pushControllerImpl = { [weak controller] c in
+        controller?.push(c)
+    }
+    return controller
+}
+
+// MARK: - Deleted messages
+
+private final class ChogramDeletedMessagesControllerArguments {
+    let store: ChogramSettingsStore
+    let openAppearance: () -> Void
+    let clearDeletedMessages: () -> Void
+    
+    init(store: ChogramSettingsStore, openAppearance: @escaping () -> Void, clearDeletedMessages: @escaping () -> Void) {
+        self.store = store
+        self.openAppearance = openAppearance
+        self.clearDeletedMessages = clearDeletedMessages
+    }
+}
+
+private enum ChogramDeletedMessagesEntry: ItemListNodeEntry {
+    case keepDeletedMessages(Bool)
+    case appearance(String)
+    case clear(Int)
+    case footer
+    
+    var section: ItemListSectionId {
+        return 0
+    }
+    
+    var stableId: Int32 {
+        switch self {
+        case .keepDeletedMessages:
+            return 0
+        case .appearance:
+            return 1
+        case .clear:
+            return 2
+        case .footer:
+            return 3
+        }
+    }
+    
+    static func <(lhs: ChogramDeletedMessagesEntry, rhs: ChogramDeletedMessagesEntry) -> Bool {
+        return lhs.stableId < rhs.stableId
+    }
+    
+    func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
+        let arguments = arguments as! ChogramDeletedMessagesControllerArguments
+        switch self {
+        case let .keepDeletedMessages(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Сохранять удалённые", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.store.update { $0.keepDeletedMessages = value }
+            })
+        case let .appearance(summary):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: "Внешний вид", label: summary, sectionId: self.section, style: .blocks, action: {
+                arguments.openAppearance()
+            })
+        case let .clear(count):
+            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: "Очистить сохранённые (\(count))", kind: count == 0 ? .disabled : .destructive, alignment: .natural, sectionId: self.section, style: .blocks, action: {
+                arguments.clearDeletedMessages()
+            })
+        case .footer:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Видны только тебе. Секретные чаты и сообщения с таймером не сохраняются."), sectionId: self.section)
+        }
+    }
+}
+
+private func chogramDeletedMessagesController(context: AccountContext, store: ChogramSettingsStore) -> ViewController {
+    let deletedMessagesCountPromise = Promise<Int>()
+    deletedMessagesCountPromise.set(context.engine.messages.chogramDeletedMessagesCount())
+    
+    var pushControllerImpl: ((ViewController) -> Void)?
+    var presentControllerImpl: ((ViewController) -> Void)?
+    
+    let arguments = ChogramDeletedMessagesControllerArguments(
+        store: store,
+        openAppearance: {
             pushControllerImpl?(chogramDeletedMessageAppearanceController(context: context, store: store))
         },
         clearDeletedMessages: {
@@ -235,19 +362,26 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
             ]))
         }
     )
-
+    
     let signal = combineLatest(queue: .mainQueue(),
         context.sharedContext.presentationData,
         store.settings,
         deletedMessagesCountPromise.get()
     )
     |> map { presentationData, settings, deletedMessagesCount -> (ItemListControllerState, (ItemListNodeState, Any)) in
-        let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Чограм"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
-        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: chogramSettingsControllerEntries(settings: settings, deletedMessagesCount: deletedMessagesCount), style: .blocks, animateChanges: true)
-
+        let presentationData = chogramPresentationData(presentationData)
+        let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Удалённые сообщения"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
+        let entries: [ChogramDeletedMessagesEntry] = [
+            .keepDeletedMessages(settings.keepDeletedMessages),
+            .appearance(chogramAppearanceSummary(settings: settings)),
+            .clear(deletedMessagesCount),
+            .footer
+        ]
+        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: entries, style: .blocks, animateChanges: true)
+        
         return (controllerState, (listState, arguments))
     }
-
+    
     let controller = ItemListController(context: context, state: signal)
     pushControllerImpl = { [weak controller] c in
         controller?.push(c)
@@ -350,6 +484,7 @@ private func chogramGhostModeController(context: AccountContext, store: ChogramS
         store.settings
     )
     |> map { presentationData, settings -> (ItemListControllerState, (ItemListNodeState, Any)) in
+        let presentationData = chogramPresentationData(presentationData)
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Режим призрака"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
         let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: chogramGhostModeEntries(settings: settings), style: .blocks, animateChanges: true)
 
@@ -486,6 +621,7 @@ private func chogramDeletedMessageAppearanceController(context: AccountContext, 
         store.settings
     )
     |> map { presentationData, settings -> (ItemListControllerState, (ItemListNodeState, Any)) in
+        let presentationData = chogramPresentationData(presentationData)
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Внешний вид"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
         let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: chogramDeletedMessageAppearanceEntries(settings: settings), style: .blocks, animateChanges: true)
 
