@@ -106,4 +106,49 @@
         <key>UIPrerenderedIcon</key>
         <true/>
     </dict>
+    <key>ChogramMint</key>
+    <dict>
+        <key>CFBundleIconFiles</key>
+        <array>
+            <string>ChogramMintIcon</string>
+        </array>
+        <key>UIPrerenderedIcon</key>
+        <true/>
+    </dict>
+    <key>ChogramWhite</key>
+    <dict>
+        <key>CFBundleIconFiles</key>
+        <array>
+            <string>ChogramWhiteIcon</string>
+        </array>
+        <key>UIPrerenderedIcon</key>
+        <true/>
+    </dict>
+    <key>ChogramNight</key>
+    <dict>
+        <key>CFBundleIconFiles</key>
+        <array>
+            <string>ChogramNightIcon</string>
+        </array>
+        <key>UIPrerenderedIcon</key>
+        <true/>
+    </dict>
+    <key>ChogramWave</key>
+    <dict>
+        <key>CFBundleIconFiles</key>
+        <array>
+            <string>ChogramWaveIcon</string>
+        </array>
+        <key>UIPrerenderedIcon</key>
+        <true/>
+    </dict>
+    <key>ChogramOutline</key>
+    <dict>
+        <key>CFBundleIconFiles</key>
+        <array>
+            <string>ChogramOutlineIcon</string>
+        </array>
+        <key>UIPrerenderedIcon</key>
+        <true/>
+    </dict>
 </dict>

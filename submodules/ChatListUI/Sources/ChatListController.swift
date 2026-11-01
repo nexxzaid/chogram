@@ -93,6 +93,7 @@ private final class ContextControllerContentSourceImpl: ContextControllerContent
 }
 
 public class ChatListControllerImpl: TelegramBaseController, ChatListController {
+    private var chogramSettingsObserver: NSObjectProtocol?
     /// iPhone Duo: this screen lays out its own side column, back button included.
     override public var placesNavigationButtonInSideColumn: Bool {
         return false
@@ -363,6 +364,11 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                         }
                     )))
                     
+                    self.updateChogramGhostButton()
+                    self.chogramSettingsObserver = NotificationCenter.default.addObserver(forName: NSNotification.Name("ChogramSettingsDidChange"), object: nil, queue: .main, using: { [weak self] _ in
+                        self?.updateChogramGhostButton()
+                    })
+                    
                     //let backBarButtonItem = UIBarButtonItem(title: self.presentationData.strings.DialogList_Title, style: .plain, target: nil, action: nil)
                     //backBarButtonItem.accessibilityLabel = self.presentationData.strings.Common_Back
                     //self.navigationItem.backBarButtonItem = backBarButtonItem
@@ -486,7 +492,36 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                             self.entry = entry
                         }
                         
-                        deinit {
+                        private func updateChogramGhostButton() {
+        let isEnabled = ChogramSettings.current.ghostMode
+        let accentColor = self.presentationData.theme.overallDarkAppearance ? UIColor(rgb: 0x5EEAD4) : UIColor(rgb: 0x0F8F7E)
+        self.primaryContext?.ghostButton = AnyComponentWithIdentity(id: "ghost", component: AnyComponent(NavigationButtonComponent(
+            content: isEnabled ? .tintedIcon(imageName: "Chogram/NavGhost", color: accentColor) : .icon(imageName: "Chogram/NavGhost"),
+            pressed: { [weak self] _ in
+                self?.toggleChogramGhostMode()
+            }
+        )))
+        self.requestLayout(transition: .animated(duration: 0.45, curve: .spring))
+    }
+    
+    private func toggleChogramGhostMode() {
+        var settings = ChogramSettings.current
+        settings.ghostMode = !settings.ghostMode
+        settings.save()
+        NotificationCenter.default.post(name: NSNotification.Name("ChogramSettingsDidChange"), object: nil)
+        
+        let accentColor = self.presentationData.theme.overallDarkAppearance ? UIColor(rgb: 0x5EEAD4) : UIColor(rgb: 0x0F8F7E)
+        if let image = generateTintedImage(image: UIImage(bundleImageName: "Chogram/NavGhost"), color: accentColor) {
+            self.present(UndoOverlayController(presentationData: self.presentationData, content: .universalImage(image: image, size: nil, title: nil, text: settings.ghostMode ? "Режим призрака включён" : "Режим призрака выключен", customUndoText: nil, timeout: 2.0), elevatedLayout: false, action: { _ in
+                return false
+            }), in: .current)
+        }
+    }
+    
+    deinit {
+        if let chogramSettingsObserver = self.chogramSettingsObserver {
+            NotificationCenter.default.removeObserver(chogramSettingsObserver)
+        }
                             self.statusDisposable?.dispose()
                         }
                     }
@@ -6833,6 +6868,7 @@ private final class ChatListLocationContext {
     var leftButton: AnyComponentWithIdentity<NavigationButtonComponentEnvironment>?
     var rightButton: AnyComponentWithIdentity<NavigationButtonComponentEnvironment>?
     var proxyButton: AnyComponentWithIdentity<NavigationButtonComponentEnvironment>?
+    var ghostButton: AnyComponentWithIdentity<NavigationButtonComponentEnvironment>?
     var storyButton: AnyComponentWithIdentity<NavigationButtonComponentEnvironment>?
     
     var rightButtons: [AnyComponentWithIdentity<NavigationButtonComponentEnvironment>] {
@@ -6845,6 +6881,9 @@ private final class ChatListLocationContext {
         }
         if let proxyButton = self.proxyButton {
             result.append(proxyButton)
+        }
+        if let ghostButton = self.ghostButton {
+            result.append(ghostButton)
         }
         return result
     }

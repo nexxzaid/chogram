@@ -334,6 +334,11 @@ alternate_icon_folders = [
     "Premium",
     "PremiumBlack",
     "PremiumTurbo",
+    "ChogramMintIcon",
+    "ChogramWhiteIcon",
+    "ChogramNightIcon",
+    "ChogramWaveIcon",
+    "ChogramOutlineIcon",
 ]
 
 composer_icon_folders = ["Telegram"]

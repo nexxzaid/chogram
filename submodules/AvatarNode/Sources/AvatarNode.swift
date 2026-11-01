@@ -35,6 +35,31 @@ public func generateDeletedAccountAvatarImage(size: CGSize) -> UIImage? {
     return generateAvatarImage(size: size, icon: deletedIcon, iconScale: size.width / 60.0, color: .blue, customColors: AvatarNode.grayscaleColors)
 }
 
+public let chogramAvatarCornersKey = "chogram.avatarCorners"
+
+// Read once: avatars are cached as rendered images, so a new shape applies after a restart.
+private let chogramAvatarCorners: CGFloat = {
+    return CGFloat(UserDefaults.standard.object(forKey: chogramAvatarCornersKey) as? Double ?? 1.0)
+}()
+
+var chogramAvatarIsRound: Bool {
+    return chogramAvatarCorners >= 1.0
+}
+
+func chogramAddAvatarPath(context: CGContext, rect: CGRect) {
+    if chogramAvatarIsRound {
+        context.addEllipse(in: rect)
+    } else {
+        context.addPath(UIBezierPath(roundedRect: rect, cornerRadius: rect.height * 0.5 * chogramAvatarCorners).cgPath)
+    }
+}
+
+func chogramFillAvatarPath(context: CGContext, rect: CGRect) {
+    context.beginPath()
+    chogramAddAvatarPath(context: context, rect: rect)
+    context.fillPath()
+}
+
 public enum AvatarNodeClipStyle {
     case none
     case round
@@ -738,7 +763,7 @@ public final class AvatarNode: ASDisplayNode {
                 self.imageNode.cornerRadius = 0.0
             case .round:
                 self.imageNode.clipsToBounds = true
-                self.imageNode.cornerRadius = displayDimensions.height * 0.5
+                self.imageNode.cornerRadius = displayDimensions.height * 0.5 * chogramAvatarCorners
             case .roundedRect:
                 self.imageNode.clipsToBounds = true
                 self.imageNode.cornerRadius = displayDimensions.height * 0.25
@@ -970,8 +995,7 @@ public final class AvatarNode: ASDisplayNode {
                 
                 if case .round = parameters.clipStyle {
                     context.beginPath()
-                    context.addEllipse(in: CGRect(x: 0.0, y: 0.0, width: bounds.size.width, height:
-                        bounds.size.height))
+                    chogramAddAvatarPath(context: context, rect: CGRect(x: 0.0, y: 0.0, width: bounds.size.width, height: bounds.size.height))
                     context.clip()
                 } else if case .roundedRect = parameters.clipStyle {
                     context.beginPath()

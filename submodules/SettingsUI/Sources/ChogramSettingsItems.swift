@@ -71,6 +71,7 @@ class ChogramBlockItemNode: ListViewItemNode {
     private let topStripeNode: ASDisplayNode
     private let bottomStripeNode: ASDisplayNode
     private let maskNode: ASImageNode
+    private let highlightedBackgroundNode: ASDisplayNode
 
     init() {
         self.backgroundNode = ASDisplayNode()
@@ -80,6 +81,8 @@ class ChogramBlockItemNode: ListViewItemNode {
         self.bottomStripeNode = ASDisplayNode()
         self.bottomStripeNode.isLayerBacked = true
         self.maskNode = ASImageNode()
+        self.highlightedBackgroundNode = ASDisplayNode()
+        self.highlightedBackgroundNode.isLayerBacked = true
 
         super.init(layerBacked: false)
     }
@@ -102,6 +105,7 @@ class ChogramBlockItemNode: ListViewItemNode {
                 self.backgroundNode.backgroundColor = item.theme.list.itemBlocksBackgroundColor
                 self.topStripeNode.backgroundColor = item.theme.list.itemBlocksSeparatorColor
                 self.bottomStripeNode.backgroundColor = item.theme.list.itemBlocksSeparatorColor
+                self.highlightedBackgroundNode.backgroundColor = item.theme.list.itemHighlightedBackgroundColor
 
                 if self.backgroundNode.supernode == nil {
                     self.insertSubnode(self.backgroundNode, at: 0)
@@ -141,8 +145,32 @@ class ChogramBlockItemNode: ListViewItemNode {
                 self.topStripeNode.frame = CGRect(origin: CGPoint(x: 0.0, y: -min(insets.top, separatorHeight)), size: CGSize(width: layoutSize.width, height: separatorHeight))
                 self.bottomStripeNode.frame = CGRect(origin: CGPoint(x: bottomStripeInset, y: contentSize.height + bottomStripeOffset), size: CGSize(width: layoutSize.width - bottomStripeInset, height: separatorHeight))
 
+                self.highlightedBackgroundNode.frame = self.backgroundNode.frame
+
                 self.updateContent(item: item, params: params)
             })
+        }
+    }
+
+    override func setHighlighted(_ highlighted: Bool, at point: CGPoint, animated: Bool) {
+        super.setHighlighted(highlighted, at: point, animated: animated)
+
+        if highlighted {
+            self.highlightedBackgroundNode.alpha = 1.0
+            if self.highlightedBackgroundNode.supernode == nil {
+                self.insertSubnode(self.highlightedBackgroundNode, aboveSubnode: self.bottomStripeNode)
+            }
+        } else if self.highlightedBackgroundNode.supernode != nil {
+            if animated {
+                self.highlightedBackgroundNode.layer.animateAlpha(from: self.highlightedBackgroundNode.alpha, to: 0.0, duration: 0.3, completion: { [weak self] completed in
+                    if completed {
+                        self?.highlightedBackgroundNode.removeFromSupernode()
+                    }
+                })
+                self.highlightedBackgroundNode.alpha = 0.0
+            } else {
+                self.highlightedBackgroundNode.removeFromSupernode()
+            }
         }
     }
 
@@ -231,8 +259,9 @@ final class ChogramDeletedMessagePreviewItemNode: ChogramBlockItemNode {
         self.textNode.frame = CGRect(origin: CGPoint(x: 12.0, y: 8.0), size: textSize)
         self.statusNode.frame = CGRect(origin: CGPoint(x: bubbleSize.width - statusSize.width - 12.0, y: textSize.height + 12.0), size: statusSize)
 
-        self.bubbleNode.backgroundColor = isGray ? theme.list.itemSecondaryTextColor.withAlphaComponent(0.18) : theme.list.itemAccentColor.withAlphaComponent(0.2)
-        self.bubbleNode.alpha = settings.deletedMessageAppearance == .labelOnly ? 1.0 : CGFloat(settings.deletedMessageOpacity) / 100.0
+        let transition: ContainedViewLayoutTransition = .animated(duration: 0.2, curve: .easeInOut)
+        transition.updateBackgroundColor(node: self.bubbleNode, color: isGray ? theme.list.itemSecondaryTextColor.withAlphaComponent(0.18) : theme.list.itemAccentColor.withAlphaComponent(0.2))
+        transition.updateAlpha(node: self.bubbleNode, alpha: settings.deletedMessageAppearance == .labelOnly ? 1.0 : CGFloat(settings.deletedMessageOpacity) / 100.0)
     }
 }
 
@@ -277,6 +306,7 @@ final class ChogramRadioItemNode: ChogramBlockItemNode {
     private let titleNode: ImmediateTextNode
     private let subtitleNode: ImmediateTextNode
     private let radioNode: ASImageNode
+    private var isSelected: Bool?
 
     override init() {
         self.iconNode = ASImageNode()
@@ -318,6 +348,10 @@ final class ChogramRadioItemNode: ChogramBlockItemNode {
         self.subtitleNode.frame = CGRect(origin: CGPoint(x: textX, y: textY + titleSize.height + 2.0), size: subtitleSize)
 
         self.radioNode.image = chogramRadioImage(theme: theme, isSelected: item.isSelected)
+        if let isSelected = self.isSelected, isSelected != item.isSelected {
+            self.radioNode.layer.animateSpring(from: 0.7 as NSNumber, to: 1.0 as NSNumber, keyPath: "transform.scale", duration: 0.4)
+        }
+        self.isSelected = item.isSelected
         self.radioNode.frame = CGRect(origin: CGPoint(x: params.width - params.rightInset - 16.0 - radioSize.width, y: floor((item.height - radioSize.height) * 0.5)), size: radioSize)
     }
 }
@@ -398,16 +432,17 @@ final class ChogramOpacitySliderItemNode: ChogramBlockItemNode {
             sliderView.enablePanHandling = true
             sliderView.trackCornerRadius = 2.0
             sliderView.lineSize = 4.0
-            sliderView.minimumValue = 10.0
-            sliderView.startValue = 10.0
-            sliderView.maximumValue = 100.0
+            // The slider misplaces its track when the minimum is above zero, so it runs from zero.
+            sliderView.minimumValue = 0.0
+            sliderView.startValue = 0.0
+            sliderView.maximumValue = 90.0
             sliderView.disablesInteractiveTransitionGestureRecognizer = true
             sliderView.addTarget(self, action: #selector(self.sliderValueChanged), for: .valueChanged)
             self.view.addSubview(sliderView)
             self.sliderView = sliderView
         }
         if isInitial {
-            sliderView.value = CGFloat(item.value)
+            sliderView.value = CGFloat(item.value - 10)
         }
         sliderView.backgroundColor = theme.list.itemBlocksBackgroundColor
         sliderView.backColor = theme.list.itemSwitchColors.frameColor
@@ -420,7 +455,7 @@ final class ChogramOpacitySliderItemNode: ChogramBlockItemNode {
         guard let sliderView = self.sliderView else {
             return
         }
-        self.item?.updated(Int(sliderView.value))
+        self.item?.updated(Int(sliderView.value) + 10)
     }
 }
 
@@ -489,7 +524,9 @@ final class ChogramIconPickerItemNode: ChogramBlockItemNode {
             self.itemNodes.append(node)
         }
 
-        ringNode.isHidden = true
+        if !item.values.contains(item.selectedValue) {
+            ringNode.isHidden = true
+        }
         for (index, value) in item.values.enumerated() {
             let center = CGPoint(x: inset + step * (CGFloat(index) + 0.5), y: floor(item.height * 0.5))
             let isSelected = value == item.selectedValue
@@ -498,8 +535,10 @@ final class ChogramIconPickerItemNode: ChogramBlockItemNode {
             node.image = generateTintedImage(image: UIImage(bundleImageName: chogramDeletedMessageIconName(value)), color: color)
             node.frame = CGRect(origin: CGPoint(x: center.x - iconSize.width * 0.5, y: center.y - iconSize.height * 0.5), size: iconSize)
             if isSelected {
+                let frame = CGRect(origin: CGPoint(x: center.x - size.width * 0.5, y: center.y - size.height * 0.5), size: size)
+                let transition: ContainedViewLayoutTransition = ringNode.isHidden ? .immediate : .animated(duration: 0.25, curve: .spring)
                 ringNode.isHidden = false
-                ringNode.frame = CGRect(origin: CGPoint(x: center.x - size.width * 0.5, y: center.y - size.height * 0.5), size: size)
+                transition.updateFrame(node: ringNode, frame: frame)
             }
         }
     }
@@ -515,6 +554,233 @@ final class ChogramIconPickerItemNode: ChogramBlockItemNode {
                 return
             }
         }
+    }
+}
+
+// MARK: - App icon picker
+
+final class ChogramAppIconItem: ChogramBlockItem {
+    let icons: [(name: String?, imageName: String, title: String)]
+    let selectedName: String?
+    let updated: (String?) -> Void
+
+    override var height: CGFloat {
+        return 16.0 + CGFloat((self.icons.count + 2) / 3) * 118.0
+    }
+
+    init(theme: PresentationTheme, icons: [(name: String?, imageName: String, title: String)], selectedName: String?, sectionId: ItemListSectionId, updated: @escaping (String?) -> Void) {
+        self.icons = icons
+        self.selectedName = selectedName
+        self.updated = updated
+        super.init(theme: theme, sectionId: sectionId)
+    }
+
+    override func makeNode() -> ChogramBlockItemNode {
+        return ChogramAppIconItemNode()
+    }
+}
+
+final class ChogramAppIconItemNode: ChogramBlockItemNode {
+    private var imageNodes: [ASImageNode] = []
+    private var titleNodes: [ImmediateTextNode] = []
+    private let ringNode: ASDisplayNode
+    private var item: ChogramAppIconItem?
+
+    override init() {
+        self.ringNode = ASDisplayNode()
+        self.ringNode.cornerRadius = 22.0
+        self.ringNode.borderWidth = 2.0
+
+        super.init()
+
+        self.addSubnode(self.ringNode)
+    }
+
+    override func didLoad() {
+        super.didLoad()
+
+        self.view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.tapGesture(_:))))
+    }
+
+    override func updateContent(item: ChogramBlockItem, params: ListViewItemLayoutParams) {
+        guard let item = item as? ChogramAppIconItem else {
+            return
+        }
+        let isFirstLayout = self.item == nil
+        self.item = item
+        let theme = item.theme
+        let iconSize = CGSize(width: 84.0, height: 84.0)
+        let columnWidth = (params.width - params.leftInset - params.rightInset - 16.0) / 3.0
+
+        self.ringNode.borderColor = theme.list.itemAccentColor.cgColor
+
+        while self.imageNodes.count < item.icons.count {
+            let imageNode = ASImageNode()
+            imageNode.displaysAsynchronously = false
+            self.addSubnode(imageNode)
+            self.imageNodes.append(imageNode)
+            let titleNode = ImmediateTextNode()
+            self.addSubnode(titleNode)
+            self.titleNodes.append(titleNode)
+        }
+
+        for (index, icon) in item.icons.enumerated() {
+            let isSelected = icon.name == item.selectedName
+            let center = CGPoint(x: params.leftInset + 8.0 + columnWidth * (CGFloat(index % 3) + 0.5), y: 12.0 + iconSize.height * 0.5 + CGFloat(index / 3) * 118.0)
+            let frame = CGRect(origin: CGPoint(x: center.x - iconSize.width * 0.5, y: center.y - iconSize.height * 0.5), size: iconSize)
+
+            let imageNode = self.imageNodes[index]
+            imageNode.image = UIImage(bundleImageName: icon.imageName)
+            imageNode.frame = frame
+
+            let titleNode = self.titleNodes[index]
+            titleNode.attributedText = NSAttributedString(string: icon.title, font: Font.regular(13.0), textColor: isSelected ? theme.list.itemAccentColor : theme.list.itemPrimaryTextColor)
+            let titleSize = titleNode.updateLayout(CGSize(width: columnWidth, height: 20.0))
+            titleNode.frame = CGRect(origin: CGPoint(x: center.x - titleSize.width * 0.5, y: frame.maxY + 8.0), size: titleSize)
+
+            if isSelected {
+                let transition: ContainedViewLayoutTransition = isFirstLayout ? .immediate : .animated(duration: 0.3, curve: .spring)
+                transition.updateFrame(node: self.ringNode, frame: frame.insetBy(dx: -5.0, dy: -5.0))
+            }
+        }
+    }
+
+    @objc private func tapGesture(_ recognizer: UITapGestureRecognizer) {
+        guard let item = self.item else {
+            return
+        }
+        let location = recognizer.location(in: self.view)
+        for (index, node) in self.imageNodes.enumerated() where index < item.icons.count {
+            if node.frame.insetBy(dx: -8.0, dy: -8.0).contains(location) {
+                item.updated(item.icons[index].name)
+                return
+            }
+        }
+    }
+}
+
+// MARK: - Avatar shape
+
+final class ChogramAvatarShapeItem: ChogramBlockItem {
+    let value: Double
+    let updated: (Double) -> Void
+
+    override var height: CGFloat {
+        return 150.0
+    }
+
+    init(theme: PresentationTheme, value: Double, sectionId: ItemListSectionId, updated: @escaping (Double) -> Void) {
+        self.value = value
+        self.updated = updated
+        super.init(theme: theme, sectionId: sectionId)
+    }
+
+    override func makeNode() -> ChogramBlockItemNode {
+        return ChogramAvatarShapeItemNode()
+    }
+}
+
+final class ChogramAvatarShapeItemNode: ChogramBlockItemNode {
+    private let avatarNode: ASDisplayNode
+    private let lettersNode: ImmediateTextNode
+    private let nameNode: ImmediateTextNode
+    private let messageNode: ImmediateTextNode
+    private let titleNode: ImmediateTextNode
+    private let valueNode: ImmediateTextNode
+    private var sliderView: TGPhotoEditorSliderView?
+    private var item: ChogramAvatarShapeItem?
+
+    override init() {
+        self.avatarNode = ASDisplayNode()
+        self.lettersNode = ImmediateTextNode()
+        self.nameNode = ImmediateTextNode()
+        self.messageNode = ImmediateTextNode()
+        self.titleNode = ImmediateTextNode()
+        self.valueNode = ImmediateTextNode()
+
+        super.init()
+
+        self.addSubnode(self.avatarNode)
+        self.avatarNode.addSubnode(self.lettersNode)
+        self.addSubnode(self.nameNode)
+        self.addSubnode(self.messageNode)
+        self.addSubnode(self.titleNode)
+        self.addSubnode(self.valueNode)
+    }
+
+    override func updateContent(item: ChogramBlockItem, params: ListViewItemLayoutParams) {
+        guard let item = item as? ChogramAvatarShapeItem else {
+            return
+        }
+        let isInitial = self.item == nil
+        self.item = item
+        let theme = item.theme
+        let inset: CGFloat = 16.0
+        let left = params.leftInset + inset
+        let width = params.width - params.leftInset - params.rightInset - inset * 2.0
+        let avatarSize: CGFloat = 52.0
+
+        self.avatarNode.backgroundColor = theme.list.itemAccentColor
+        self.avatarNode.cornerRadius = avatarSize * 0.5 * CGFloat(item.value)
+        self.avatarNode.frame = CGRect(x: left, y: 12.0, width: avatarSize, height: avatarSize)
+        self.lettersNode.attributedText = NSAttributedString(string: "ЧО", font: Font.semibold(17.0), textColor: theme.overallDarkAppearance ? .black : .white)
+        let lettersSize = self.lettersNode.updateLayout(CGSize(width: avatarSize, height: avatarSize))
+        self.lettersNode.frame = CGRect(origin: CGPoint(x: floor((avatarSize - lettersSize.width) * 0.5), y: floor((avatarSize - lettersSize.height) * 0.5)), size: lettersSize)
+
+        let textX = left + avatarSize + 12.0
+        self.nameNode.attributedText = NSAttributedString(string: "Чограм", font: Font.semibold(17.0), textColor: theme.list.itemPrimaryTextColor)
+        self.messageNode.attributedText = NSAttributedString(string: "Как тебе новые аватарки?", font: Font.regular(15.0), textColor: theme.list.itemSecondaryTextColor)
+        let nameSize = self.nameNode.updateLayout(CGSize(width: width - avatarSize - 12.0, height: 24.0))
+        let messageSize = self.messageNode.updateLayout(CGSize(width: width - avatarSize - 12.0, height: 22.0))
+        self.nameNode.frame = CGRect(origin: CGPoint(x: textX, y: 15.0), size: nameSize)
+        self.messageNode.frame = CGRect(origin: CGPoint(x: textX, y: 18.0 + nameSize.height), size: messageSize)
+
+        let valueText: String
+        if item.value >= 1.0 {
+            valueText = "Круг"
+        } else if item.value <= 0.0 {
+            valueText = "Квадрат"
+        } else {
+            valueText = "\(Int(item.value * 100.0))%"
+        }
+        self.titleNode.attributedText = NSAttributedString(string: "Скругление", font: Font.regular(17.0), textColor: theme.list.itemPrimaryTextColor)
+        self.valueNode.attributedText = NSAttributedString(string: valueText, font: Font.semibold(17.0), textColor: theme.list.itemAccentColor)
+        let titleSize = self.titleNode.updateLayout(CGSize(width: width, height: 30.0))
+        let valueSize = self.valueNode.updateLayout(CGSize(width: width, height: 30.0))
+        self.titleNode.frame = CGRect(origin: CGPoint(x: left, y: 78.0), size: titleSize)
+        self.valueNode.frame = CGRect(origin: CGPoint(x: params.width - params.rightInset - inset - valueSize.width, y: 78.0), size: valueSize)
+
+        let sliderView: TGPhotoEditorSliderView
+        if let current = self.sliderView {
+            sliderView = current
+        } else {
+            sliderView = TGPhotoEditorSliderView()
+            sliderView.enablePanHandling = true
+            sliderView.trackCornerRadius = 2.0
+            sliderView.lineSize = 4.0
+            sliderView.minimumValue = 0.0
+            sliderView.startValue = 0.0
+            sliderView.maximumValue = 100.0
+            sliderView.disablesInteractiveTransitionGestureRecognizer = true
+            sliderView.addTarget(self, action: #selector(self.sliderValueChanged), for: .valueChanged)
+            self.view.addSubview(sliderView)
+            self.sliderView = sliderView
+        }
+        if isInitial {
+            sliderView.value = CGFloat(item.value * 100.0)
+        }
+        sliderView.backgroundColor = theme.list.itemBlocksBackgroundColor
+        sliderView.backColor = theme.list.itemSwitchColors.frameColor
+        sliderView.trackColor = theme.list.itemAccentColor
+        sliderView.knobImage = PresentationResourcesItemList.knobImage(theme)
+        sliderView.frame = CGRect(origin: CGPoint(x: left - 8.0, y: 106.0), size: CGSize(width: width + 16.0, height: 44.0))
+    }
+
+    @objc private func sliderValueChanged() {
+        guard let sliderView = self.sliderView else {
+            return
+        }
+        self.item?.updated(Double(sliderView.value) / 100.0)
     }
 }
 

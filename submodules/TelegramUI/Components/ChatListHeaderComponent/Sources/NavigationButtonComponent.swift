@@ -28,6 +28,7 @@ public final class NavigationButtonComponent: Component {
         case text(title: String, isBold: Bool)
         case more
         case icon(imageName: String)
+        case tintedIcon(imageName: String, color: UIColor)
         case proxy(status: ChatTitleProxyStatus)
     }
     
@@ -57,6 +58,7 @@ public final class NavigationButtonComponent: Component {
         
         private var iconView: UIImageView?
         private var iconImageName: String?
+        private var iconColor: UIColor?
         
         private var proxyNode: ChatTitleProxyNode?
         
@@ -111,6 +113,7 @@ public final class NavigationButtonComponent: Component {
             
             var textString: NSAttributedString?
             var imageName: String?
+            var iconColor: UIColor?
             var proxyStatus: ChatTitleProxyStatus?
             var isMore: Bool = false
             
@@ -125,6 +128,9 @@ public final class NavigationButtonComponent: Component {
                 isMore = true
             case let .icon(imageNameValue):
                 imageName = imageNameValue
+            case let .tintedIcon(imageNameValue, color):
+                imageName = imageNameValue
+                iconColor = color
             case let .proxy(status):
                 proxyStatus = status
             }
@@ -163,9 +169,10 @@ public final class NavigationButtonComponent: Component {
                     self.iconView = iconView
                     self.addSubview(iconView)
                 }
-                if self.iconImageName != imageName || themeUpdated {
+                if self.iconImageName != imageName || self.iconColor != iconColor || themeUpdated {
                     self.iconImageName = imageName
-                    iconView.image = generateTintedImage(image: UIImage(bundleImageName: imageName), color: theme.chat.inputPanel.panelControlColor)
+                    self.iconColor = iconColor
+                    iconView.image = generateTintedImage(image: UIImage(bundleImageName: imageName), color: iconColor ?? theme.chat.inputPanel.panelControlColor)
                 }
                 
                 if let iconSize = iconView.image?.size {

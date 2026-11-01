@@ -13,14 +13,16 @@ final class ChogramSettingsHeaderItem: ListViewItem, ItemListItem {
     let presentationData: ItemListPresentationData
     let title: String
     let subtitle: String
+    let logoImageName: String
     let sectionId: ItemListSectionId
     let isAlwaysPlain: Bool = true
     let selectable: Bool = false
 
-    init(presentationData: ItemListPresentationData, title: String, subtitle: String, sectionId: ItemListSectionId) {
+    init(presentationData: ItemListPresentationData, title: String, subtitle: String, logoImageName: String, sectionId: ItemListSectionId) {
         self.presentationData = presentationData
         self.title = title
         self.subtitle = subtitle
+        self.logoImageName = logoImageName
         self.sectionId = sectionId
     }
 
@@ -74,7 +76,6 @@ final class ChogramSettingsHeaderItemNode: ListViewItemNode, ItemListItemNode {
         self.logoNode = ASImageNode()
         self.logoNode.isLayerBacked = true
         self.logoNode.displaysAsynchronously = false
-        self.logoNode.image = UIImage(bundleImageName: "Chogram/Logo")
 
         self.titleNode = TextNode()
         self.titleNode.isUserInteractionEnabled = false
@@ -114,6 +115,7 @@ final class ChogramSettingsHeaderItemNode: ListViewItemNode, ItemListItemNode {
                 }
                 let _ = titleApply()
                 let _ = subtitleApply()
+                self.logoNode.image = UIImage(bundleImageName: item.logoImageName)
 
                 let titleY = topInset + logoSize + logoSpacing
                 self.logoNode.frame = CGRect(origin: CGPoint(x: floorToScreenPixels((params.width - logoSize) * 0.5), y: topInset), size: CGSize(width: logoSize, height: logoSize))
