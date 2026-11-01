@@ -86,21 +86,6 @@ jobs:
 
           mv build/artifacts/Telegram.ipa build/artifacts/Chogram.ipa
 
-      - name: Add proxy to the IPA
-        env:
-          CHOGRAM_PROXY_SECRET: ${{ secrets.CHOGRAM_PROXY_SECRET }}
-        run: |
-          if [ -z "$CHOGRAM_PROXY_SECRET" ]; then
-            echo "::warning::CHOGRAM_PROXY_SECRET is not set, building without a proxy"
-            exit 0
-          fi
-          mkdir build/ipa
-          unzip -q build/artifacts/Chogram.ipa -d build/ipa
-          plutil -insert ChogramProxySecret -string "$CHOGRAM_PROXY_SECRET" build/ipa/Payload/*.app/Info.plist
-          rm build/artifacts/Chogram.ipa
-          (cd build/ipa && zip -qry ../artifacts/Chogram.ipa .)
-          rm -rf build/ipa
-
       - name: Save bazel cache
         if: always()
         uses: actions/cache/save@v4
@@ -112,9 +97,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # A draft is visible only to people with write access, and the IPA holds the proxy secret.
           gh release create "build-$BUILD_NUMBER" build/artifacts/Chogram.ipa \
-            --draft \
             --target "$GITHUB_SHA" \
             --title "Chogram $APP_VERSION ($BUILD_NUMBER)" \
             --notes "Unsigned build of Chogram $APP_VERSION ($BUILD_NUMBER) for installing through AltStore."

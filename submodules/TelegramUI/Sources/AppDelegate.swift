@@ -1058,7 +1058,6 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
 
         telegramUIDeclareEncodables()
         initializeAccountManagement()
-        chogramInstallDefaultProxy(accountManager: accountManager)
 
         if isUITest,
            let deleteIdx = CommandLine.arguments.firstIndex(of: "--delete-test-account"),
