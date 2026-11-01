@@ -492,36 +492,7 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                             self.entry = entry
                         }
                         
-                        private func updateChogramGhostButton() {
-        let isEnabled = ChogramSettings.current.ghostMode
-        let accentColor = self.presentationData.theme.overallDarkAppearance ? UIColor(rgb: 0x5EEAD4) : UIColor(rgb: 0x0F8F7E)
-        self.primaryContext?.ghostButton = AnyComponentWithIdentity(id: "ghost", component: AnyComponent(NavigationButtonComponent(
-            content: isEnabled ? .tintedIcon(imageName: "Chogram/NavGhost", color: accentColor) : .icon(imageName: "Chogram/NavGhost"),
-            pressed: { [weak self] _ in
-                self?.toggleChogramGhostMode()
-            }
-        )))
-        self.requestLayout(transition: .animated(duration: 0.45, curve: .spring))
-    }
-    
-    private func toggleChogramGhostMode() {
-        var settings = ChogramSettings.current
-        settings.ghostMode = !settings.ghostMode
-        settings.save()
-        NotificationCenter.default.post(name: NSNotification.Name("ChogramSettingsDidChange"), object: nil)
-        
-        let accentColor = self.presentationData.theme.overallDarkAppearance ? UIColor(rgb: 0x5EEAD4) : UIColor(rgb: 0x0F8F7E)
-        if let image = generateTintedImage(image: UIImage(bundleImageName: "Chogram/NavGhost"), color: accentColor) {
-            self.present(UndoOverlayController(presentationData: self.presentationData, content: .universalImage(image: image, size: nil, title: nil, text: settings.ghostMode ? "Режим призрака включён" : "Режим призрака выключен", customUndoText: nil, timeout: 2.0), elevatedLayout: false, action: { _ in
-                return false
-            }), in: .current)
-        }
-    }
-    
-    deinit {
-        if let chogramSettingsObserver = self.chogramSettingsObserver {
-            NotificationCenter.default.removeObserver(chogramSettingsObserver)
-        }
+                        deinit {
                             self.statusDisposable?.dispose()
                         }
                     }
@@ -826,7 +797,36 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
         fatalError("init(coder:) has not been implemented")
     }
     
+    private func updateChogramGhostButton() {
+        let isEnabled = ChogramSettings.current.ghostMode
+        let accentColor = self.presentationData.theme.overallDarkAppearance ? UIColor(rgb: 0x5EEAD4) : UIColor(rgb: 0x0F8F7E)
+        self.primaryContext?.ghostButton = AnyComponentWithIdentity(id: "ghost", component: AnyComponent(NavigationButtonComponent(
+            content: isEnabled ? .tintedIcon(imageName: "Chogram/NavGhost", color: accentColor) : .icon(imageName: "Chogram/NavGhost"),
+            pressed: { [weak self] _ in
+                self?.toggleChogramGhostMode()
+            }
+        )))
+        self.requestLayout(transition: .animated(duration: 0.45, curve: .spring))
+    }
+    
+    private func toggleChogramGhostMode() {
+        var settings = ChogramSettings.current
+        settings.ghostMode = !settings.ghostMode
+        settings.save()
+        NotificationCenter.default.post(name: NSNotification.Name("ChogramSettingsDidChange"), object: nil)
+        
+        let accentColor = self.presentationData.theme.overallDarkAppearance ? UIColor(rgb: 0x5EEAD4) : UIColor(rgb: 0x0F8F7E)
+        if let image = generateTintedImage(image: UIImage(bundleImageName: "Chogram/NavGhost"), color: accentColor) {
+            self.present(UndoOverlayController(presentationData: self.presentationData, content: .universalImage(image: image, size: nil, title: nil, text: settings.ghostMode ? "Режим призрака включён" : "Режим призрака выключен", customUndoText: nil, timeout: 2.0), elevatedLayout: false, action: { _ in
+                return false
+            }), in: .current)
+        }
+    }
+    
     deinit {
+        if let chogramSettingsObserver = self.chogramSettingsObserver {
+            NotificationCenter.default.removeObserver(chogramSettingsObserver)
+        }
         self.openMessageFromSearchDisposable.dispose()
         self.badgeDisposable?.dispose()
         self.badgeIconDisposable?.dispose()
