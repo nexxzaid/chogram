@@ -15,6 +15,7 @@ public struct ChogramSettings: Equatable {
     private static let deletedMessageLabelKey = "chogram.deletedMessageLabel"
     private static let showDeletionTimeKey = "chogram.showDeletionTime"
     private static let hideAdsKey = "chogram.hideAds"
+    private static let filterZalgoKey = "chogram.filterZalgo"
     private static let ghostModeKey = "chogram.ghostMode"
     private static let ghostHideOnlineKey = "chogram.ghostHideOnline"
     private static let ghostHideReadKey = "chogram.ghostHideRead"
@@ -28,6 +29,7 @@ public struct ChogramSettings: Equatable {
     public var deletedMessageLabel: String
     public var showDeletionTime: Bool
     public var hideAds: Bool
+    public var filterZalgo: Bool
     public var ghostMode: Bool
     public var ghostHideOnline: Bool
     public var ghostHideRead: Bool
@@ -60,6 +62,7 @@ public struct ChogramSettings: Equatable {
             deletedMessageLabel: defaults.string(forKey: deletedMessageLabelKey) ?? "удалено",
             showDeletionTime: defaults.object(forKey: showDeletionTimeKey) as? Bool ?? true,
             hideAds: defaults.object(forKey: hideAdsKey) as? Bool ?? true,
+            filterZalgo: defaults.object(forKey: filterZalgoKey) as? Bool ?? true,
             ghostMode: defaults.object(forKey: ghostModeKey) as? Bool ?? false,
             ghostHideOnline: defaults.object(forKey: ghostHideOnlineKey) as? Bool ?? true,
             ghostHideRead: defaults.object(forKey: ghostHideReadKey) as? Bool ?? true,
@@ -77,6 +80,7 @@ public struct ChogramSettings: Equatable {
         defaults.set(self.deletedMessageLabel, forKey: ChogramSettings.deletedMessageLabelKey)
         defaults.set(self.showDeletionTime, forKey: ChogramSettings.showDeletionTimeKey)
         defaults.set(self.hideAds, forKey: ChogramSettings.hideAdsKey)
+        defaults.set(self.filterZalgo, forKey: ChogramSettings.filterZalgoKey)
         defaults.set(self.ghostMode, forKey: ChogramSettings.ghostModeKey)
         defaults.set(self.ghostHideOnline, forKey: ChogramSettings.ghostHideOnlineKey)
         defaults.set(self.ghostHideRead, forKey: ChogramSettings.ghostHideReadKey)

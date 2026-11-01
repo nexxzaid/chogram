@@ -1,4 +1,6 @@
 import Foundation
+import PresentationDataUtils
+import SettingsUI
 import UIKit
 import Display
 import AccountContext
@@ -459,6 +461,43 @@ extension PeerInfoScreenNode {
                         self?.openChatWithMessageSearch()
                     })))
                 }
+                items.append(.action(ContextMenuActionItem(text: "Чограм", icon: { theme in
+                    generateTintedImage(image: UIImage(bundleImageName: "Chogram/NavGhost"), color: theme.contextMenu.primaryColor)
+                }, action: { [weak self] c, _ in
+                    guard let self else {
+                        return
+                    }
+                    let peerId = chatPeer.id
+                    let subItems: [ContextMenuItem] = [
+                        .action(ContextMenuActionItem(text: "Посмотреть удалённые", icon: { theme in
+                            generateTintedImage(image: UIImage(bundleImageName: "Chogram/Trash"), color: theme.contextMenu.primaryColor)
+                        }, action: { [weak self] _, f in
+                            f(.dismissWithoutContent)
+                            guard let self else {
+                                return
+                            }
+                            self.controller?.push(chogramPeerDeletedMessagesController(context: self.context, peerId: peerId))
+                        })),
+                        .action(ContextMenuActionItem(text: "Очистить удалённые", textColor: .destructive, icon: { theme in
+                            generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Delete"), color: theme.contextMenu.destructiveColor)
+                        }, action: { [weak self] _, f in
+                            f(.dismissWithoutContent)
+                            guard let self else {
+                                return
+                            }
+                            self.controller?.present(textAlertController(context: self.context, title: nil, text: "Удалить сохранённые сообщения этого чата?", actions: [
+                                TextAlertAction(type: .genericAction, title: presentationData.strings.Common_Cancel, action: {}),
+                                TextAlertAction(type: .destructiveAction, title: presentationData.strings.Common_Delete, action: { [weak self] in
+                                    guard let self else {
+                                        return
+                                    }
+                                    let _ = self.context.engine.messages.chogramClearDeletedMessages(peerId: peerId).startStandalone()
+                                })
+                            ]), in: .window(.root))
+                        }))
+                    ]
+                    c?.pushItems(items: .single(ContextController.Items(content: .list(subItems))))
+                })))
                 
                 var hasDiscussion = false
                 if case let .channel(channel) = chatPeer {

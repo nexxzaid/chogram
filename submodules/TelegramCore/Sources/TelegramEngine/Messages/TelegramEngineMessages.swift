@@ -225,6 +225,20 @@ public extension TelegramEngine {
             |> ignoreValues
         }
         
+        public func chogramClearDeletedMessages(peerId: PeerId) -> Signal<Never, NoError> {
+            let mediaBox = self.account.postbox.mediaBox
+            return self.account.postbox.transaction { transaction -> Void in
+                _internal_chogramClearDeletedMessages(transaction: transaction, mediaBox: mediaBox, peerId: peerId)
+            }
+            |> ignoreValues
+        }
+        
+        public func chogramDeletedMessages(peerId: PeerId) -> Signal<[EngineMessage], NoError> {
+            return self.account.postbox.transaction { transaction -> [EngineMessage] in
+                return _internal_chogramDeletedMessages(transaction: transaction, peerId: peerId).map(EngineMessage.init)
+            }
+        }
+        
         public func chogramDeletedMessagesCount() -> Signal<Int, NoError> {
             return self.account.postbox.transaction { transaction -> Int in
                 return _internal_chogramDeletedMessagesCount(transaction: transaction)

@@ -41,9 +41,12 @@ private func chogramCanRetainMessage(_ message: Message, accountPeerId: PeerId) 
     default:
         return false
     }
-    // Self-destructing messages must stay gone: their senders never meant them to last.
+    // One-time media stays gone. A chat's auto-delete timer is retained like any other deletion.
+    if message.containsSecretMedia {
+        return false
+    }
     for attribute in message.attributes {
-        if attribute is AutoremoveTimeoutMessageAttribute || attribute is AutoclearTimeoutMessageAttribute || attribute is EphemeralReplacementMessageAttribute {
+        if attribute is AutoclearTimeoutMessageAttribute || attribute is EphemeralReplacementMessageAttribute {
             return false
         }
     }
@@ -81,7 +84,8 @@ func _internal_chogramRetainDeletedMessages(transaction: Transaction, accountPee
             if let forwardInfo = currentMessage.forwardInfo {
                 storeForwardInfo = StoreMessageForwardInfo(authorId: forwardInfo.author?.id, sourceId: forwardInfo.source?.id, sourceMessageId: forwardInfo.sourceMessageId, date: forwardInfo.date, authorSignature: forwardInfo.authorSignature, psaType: forwardInfo.psaType, flags: forwardInfo.flags)
             }
-            var attributes = currentMessage.attributes
+            // Keeping the timer attribute would schedule the removal again.
+            var attributes = currentMessage.attributes.filter { !($0 is AutoremoveTimeoutMessageAttribute) }
             attributes.append(ChogramDeletedMessageAttribute(date: timestamp))
             return .update(StoreMessage(id: currentMessage.id, customStableId: nil, globallyUniqueId: currentMessage.globallyUniqueId, groupingKey: currentMessage.groupingKey, threadId: currentMessage.threadId, timestamp: currentMessage.timestamp, flags: StoreMessageFlags(currentMessage.flags), tags: currentMessage.tags, globalTags: currentMessage.globalTags, localTags: currentMessage.localTags, forwardInfo: storeForwardInfo, authorId: currentMessage.author?.id, text: currentMessage.text, attributes: attributes, media: currentMessage.media))
         })
@@ -114,6 +118,19 @@ func _internal_chogramRemoveDeletedMessages(transaction: Transaction, mediaBox: 
 func _internal_chogramClearDeletedMessages(transaction: Transaction, mediaBox: MediaBox) {
     let ids = chogramDeletedMessagesState(transaction: transaction).messageIds
     _internal_chogramRemoveDeletedMessages(transaction: transaction, mediaBox: mediaBox, ids: ids)
+}
+
+func _internal_chogramClearDeletedMessages(transaction: Transaction, mediaBox: MediaBox, peerId: PeerId) {
+    let ids = chogramDeletedMessagesState(transaction: transaction).messageIds.filter { $0.peerId == peerId }
+    _internal_chogramRemoveDeletedMessages(transaction: transaction, mediaBox: mediaBox, ids: ids)
+}
+
+func _internal_chogramDeletedMessages(transaction: Transaction, peerId: PeerId) -> [Message] {
+    return chogramDeletedMessagesState(transaction: transaction).messageIds
+        .filter { $0.peerId == peerId }
+        .compactMap { transaction.getMessage($0) }
+        .filter { $0.attributes.contains(where: { $0 is ChogramDeletedMessageAttribute }) }
+        .sorted(by: { $0.index > $1.index })
 }
 
 func _internal_chogramDeletedMessagesCount(transaction: Transaction) -> Int {

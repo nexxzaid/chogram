@@ -543,6 +543,18 @@ private func mapVisibility(_ visibility: ListViewItemNodeVisibility, boundsSize:
     }
 }
 
+private func chogramAuthorName(_ name: NSAttributedString, authorId: EnginePeer.Id?) -> NSAttributedString {
+    guard let authorId, name.length != 0, ChogramBadges.shared.badge(peerId: authorId) != nil, let image = UIImage(bundleImageName: "Chogram/BadgeSmall") else {
+        return name
+    }
+    let result = NSMutableAttributedString(attributedString: name)
+    var attributes = name.attributes(at: 0, effectiveRange: nil)
+    attributes[.attachment] = image.withRenderingMode(.alwaysOriginal)
+    result.append(NSAttributedString(string: " "))
+    result.append(NSAttributedString(string: "\u{2003}", attributes: attributes))
+    return result
+}
+
 public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewItemNode {
     public class ContentContainer {
         public let contentMessageStableId: UInt32
@@ -2885,7 +2897,7 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
                 
                 let closeButtonWidth: CGFloat = item.message.adAttribute != nil ? 18.0 : 0.0
                 
-                let sizeAndApply = authorNameLayout(TextNodeLayoutArguments(attributedString: attributedString, backgroundColor: nil, maximumNumberOfLines: 1, truncationType: .end, constrainedSize: CGSize(width: max(0, maximumNodeWidth - layoutConstants.text.bubbleInsets.left - layoutConstants.text.bubbleInsets.right - credibilityIconWidth - rankBadgeSizeAndApply.0.size.width - closeButtonWidth), height: CGFloat.greatestFiniteMagnitude), alignment: .natural, cutout: nil, insets: UIEdgeInsets()))
+                let sizeAndApply = authorNameLayout(TextNodeLayoutArguments(attributedString: chogramAuthorName(attributedString, authorId: item.message.author?.id), backgroundColor: nil, maximumNumberOfLines: 1, truncationType: .end, constrainedSize: CGSize(width: max(0, maximumNodeWidth - layoutConstants.text.bubbleInsets.left - layoutConstants.text.bubbleInsets.right - credibilityIconWidth - rankBadgeSizeAndApply.0.size.width - closeButtonWidth), height: CGFloat.greatestFiniteMagnitude), alignment: .natural, cutout: nil, insets: UIEdgeInsets()))
                 nameNodeSizeApply = (sizeAndApply.0.size, {
                     return sizeAndApply.1()
                 })

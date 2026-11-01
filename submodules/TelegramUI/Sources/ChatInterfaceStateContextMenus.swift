@@ -1,4 +1,5 @@
 import Foundation
+import TextFormat
 import UIKit
 import TelegramCore
 import AsyncDisplayKit
@@ -1228,6 +1229,28 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                     })
                 })
             })))
+            
+            // The server rejects reply quotes of a transcription, so the text goes into the composer.
+            if hasExpandedAudioTranscription, let audioTranscription, !audioTranscription.text.isEmpty {
+                let transcription = audioTranscription.text
+                actions.append(.action(ContextMenuActionItem(text: "Цитировать расшифровку", icon: { theme in
+                    return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Quote"), color: theme.actionSheet.primaryTextColor)
+                }, action: { c, _ in
+                    interfaceInteraction.updateTextInputStateAndMode { state, mode in
+                        let text = NSMutableAttributedString(attributedString: state.inputText)
+                        let quote = NSMutableAttributedString(string: transcription)
+                        quote.addAttribute(ChatTextInputAttributes.block, value: ChatTextInputTextQuoteAttribute(kind: .quote, isCollapsed: false), range: NSRange(location: 0, length: quote.length))
+                        text.append(quote)
+                        text.append(NSAttributedString(string: "\n"))
+                        return (ChatTextInputState(inputText: text), mode)
+                    }
+                    interfaceInteraction.setupReplyMessage(messages[0].id, nil, { transition, completed in
+                        c?.dismiss(result: .custom(transition), completion: {
+                            completed()
+                        })
+                    })
+                })))
+            }
         }
         
         if data.messageActions.options.contains(.sendGift), !message.id.peerId.isTelegramNotifications {

@@ -106,6 +106,7 @@ func infoItems(
         let ItemAbout = 3003
         let ItemNote = 3004
         let ItemAppFooter = 3005
+        let ItemChogramBadge = 3006
         let ItemAffiliate = 4000
         let ItemAffiliateInfo = 4001
         let ItemBusinessHours = 5000
@@ -186,6 +187,11 @@ func infoItems(
             }, longTapAction: nil, contextAction: { node, gesture, _ in
                 interaction.openPhone(phone, node, gesture, nil)
             }, requestLayout: { animated in
+                interaction.requestLayout(animated)
+            }))
+        }
+        if let badge = ChogramBadges.shared.badge(peerId: user.id) {
+            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemChogramBadge, label: "Чограм", text: badge.title, textColor: .accent, action: nil, requestLayout: { animated in
                 interaction.requestLayout(animated)
             }))
         }

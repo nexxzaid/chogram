@@ -441,6 +441,11 @@ public class ChatMessageTextBubbleContentNode: ChatMessageBubbleContentNode {
                 }
                 
                 
+                // Entities address the original text, so a message with them stays as it is.
+                if (messageEntities ?? []).isEmpty, let cleanedText = chogramRemoveZalgo(rawText) {
+                    rawText = cleanedText
+                }
+                
                 if incoming && item.associatedData.isSuspiciousPeer, let entities = messageEntities {
                     messageEntities = entities.filter { entity in
                         switch entity.type {

@@ -484,6 +484,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         case verified
         case fake
         case scam
+        case chogramBadge
         case emojiStatus(PeerEmojiStatus)
     }
     
@@ -626,6 +627,9 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
             if let verificationIconFileId = peer.verificationIconFileId {
                 verifiedIcon = .emojiStatus(PeerEmojiStatus(content: .emoji(fileId: verificationIconFileId), expirationDate: nil))
+            }
+            if ChogramBadges.shared.badge(peerId: peer.id) != nil {
+                credibilityIcon = .chogramBadge
             }
         }
         
@@ -926,6 +930,10 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             case .scam:
                 emojiRegularStatusContent = .text(color: presentationData.theme.chat.message.incoming.scamColor, string: presentationData.strings.Message_ScamAccount.uppercased())
                 emojiExpandedStatusContent = emojiRegularStatusContent
+            case .chogramBadge:
+                emojiRegularStatusContent = .image(image: UIImage(bundleImageName: "Chogram/Badge"), tintColor: nil)
+                emojiStatusSize = CGSize(width: 24.0, height: 24.0)
+                emojiExpandedStatusContent = emojiRegularStatusContent
             case let .emojiStatus(emojiStatus):
                 currentEmojiStatus = emojiStatus
                 emojiRegularStatusContent = .animation(content: .customEmoji(fileId: emojiStatus.fileId), size: CGSize(width: 80.0, height: 80.0), placeholderColor: presentationData.theme.list.mediaPlaceholderColor, themeColor: navigationContentsAccentColor, loopMode: .forever)
@@ -949,6 +957,9 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                         if case .premium = strongSelf.currentCredibilityIcon {
                             strongSelf.displayPremiumIntro?(strongSelf.titleCredibilityIconView, currentEmojiStatus, strongSelf.emojiStatusFileAndPackTitle.get(), false)
                         }
+                        if case .chogramBadge = strongSelf.currentCredibilityIcon, let peerId = strongSelf.peer?.id, let badge = ChogramBadges.shared.badge(peerId: peerId) {
+                            strongSelf.displayUniqueGiftInfo?(strongSelf.titleCredibilityIconView, badge.description ?? badge.title)
+                        }
                     }
                 )),
                 environment: {},
@@ -970,6 +981,9 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                         }
                         if case .premium = strongSelf.currentCredibilityIcon {
                             strongSelf.displayPremiumIntro?(strongSelf.titleExpandedCredibilityIconView, currentEmojiStatus, strongSelf.emojiStatusFileAndPackTitle.get(), true)
+                        }
+                        if case .chogramBadge = strongSelf.currentCredibilityIcon, let peerId = strongSelf.peer?.id, let badge = ChogramBadges.shared.badge(peerId: peerId) {
+                            strongSelf.displayUniqueGiftInfo?(strongSelf.titleExpandedCredibilityIconView, badge.description ?? badge.title)
                         }
                     }
                 )),
