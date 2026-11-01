@@ -1,116 +1,123 @@
-# Telegram iOS Source Code Compilation Guide
+<p align="center">
+  <img src=".github/assets/banner.svg" alt="Чограм" width="100%">
+</p>
 
-We welcome all developers to use our API and source code to create applications on our platform.
-There are several things we require from **all developers** for the moment.
+<p align="center">
+  <a href="https://github.com/nexxzaid/chogram/releases/latest"><b>Скачать последнюю сборку</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://t.me/wabexe">Разработчик</a>
+</p>
 
-# Creating your Telegram Application
+<br>
 
-1. [**Obtain your own api_id**](https://core.telegram.org/api/obtaining_api_id) for your application.
-2. Please **do not** use the name Telegram for your app — or make sure your users understand that it is unofficial.
-3. Kindly **do not** use our standard logo (white paper plane in a blue circle) as your app's logo.
-3. Please study our [**security guidelines**](https://core.telegram.org/mtproto/security_guidelines) and take good care of your users' data and privacy.
-4. Please remember to publish **your** code too in order to comply with the licences.
+Чограм работает с твоим обычным аккаунтом Telegram и добавляет то, чего не хватает в официальном приложении. Это личный проект, а не сервис: никаких своих серверов для сообщений здесь нет, переписка идёт напрямую в Telegram.
 
-# Quick Compilation Guide
+<br>
 
-## Get the Code
+<table>
+<tr>
+<td width="50%" valign="top">
 
-```
-git clone --recursive -j8 https://github.com/TelegramMessenger/Telegram-iOS.git
-```
+<img src=".github/assets/icons/trash.svg" width="28" alt=""><br>
+**Удалённые остаются**<br>
+Сообщение, которое удалил собеседник, сереет и остаётся в чате. Это видишь только ты. Работает и с автоудалением, и когда удаляют весь чат.
 
-## Setup Xcode
+</td>
+<td width="50%" valign="top">
 
-Install Xcode (directly from https://developer.apple.com/download/applications or using the App Store).
+<img src=".github/assets/icons/ghost.svg" width="28" alt=""><br>
+**Режим призрака**<br>
+Без онлайна, отметок о прочтении, просмотров историй и статуса «печатает». Включается одной кнопкой в списке чатов.
 
-## Adjust Configuration
+</td>
+</tr>
+<tr>
+<td valign="top">
 
-1. Generate a random identifier:
-```
-openssl rand -hex 8
-```
-2. Create a new Xcode project. Use `Telegram` as the Product Name. Use `org.{identifier from step 1}` as the Organization Identifier.
-3. Open `Keychain Access` and navigate to `Certificates`. Locate `Apple Development: your@email.address (XXXXXXXXXX)` and double tap the certificate. Under `Details`, locate `Organizational Unit`. This is the Team ID.
-4. Edit `build-system/template_minimal_development_configuration.json`. Use data from the previous steps.
+<img src=".github/assets/icons/shield.svg" width="28" alt=""><br>
+**Без рекламы**<br>
+Спонсорские сообщения в каналах и реклама в поиске просто не загружаются.
 
-## Generate an Xcode project
+</td>
+<td valign="top">
 
-```
-python3 build-system/Make/Make.py \
-    --cacheDir="$HOME/telegram-bazel-cache" \
-    generateProject \
-    --configurationPath=build-system/template_minimal_development_configuration.json \
-    --xcodeManagedCodesigning
-```
+<img src=".github/assets/icons/users.svg" width="28" alt=""><br>
+**Сколько угодно аккаунтов**<br>
+Вместо лимита на три аккаунта обычное меню Telegram, только без предела.
 
-# Advanced Compilation Guide
+</td>
+</tr>
+<tr>
+<td valign="top">
 
-## Xcode
+<img src=".github/assets/icons/chat.svg" width="28" alt=""><br>
+**Цитаты из голосовых**<br>
+Текст расшифровки можно процитировать в ответе.
 
-1. Copy and edit `build-system/appstore-configuration.json`.
-2. Copy `build-system/fake-codesigning`. Create and download provisioning profiles, using the `profiles` folder as a reference for the entitlements.
-3. Generate an Xcode project:
-```
-python3 build-system/Make/Make.py \
-    --cacheDir="$HOME/telegram-bazel-cache" \
-    generateProject \
-    --configurationPath=configuration_from_step_1.json \
-    --codesigningInformationPath=directory_from_step_2
-```
+</td>
+<td valign="top">
 
-## IPA
+<img src=".github/assets/icons/text.svg" width="28" alt=""><br>
+**Чистый текст**<br>
+Фильтр убирает Zalgo, который расползается на соседние строки и ломает чат.
 
-1. Repeat the steps from the previous section. Use distribution provisioning profiles.
-2. Run:
-```
-python3 build-system/Make/Make.py \
-    --cacheDir="$HOME/telegram-bazel-cache" \
-    build \
-    --configurationPath=...see previous section... \
-    --codesigningInformationPath=...see previous section... \
-    --buildNumber=100001 \
-    --configuration=release_arm64
-```
+</td>
+</tr>
+</table>
 
-# FAQ
+<br>
 
-## Xcode is stuck at "build-request.json not updated yet"
+<h3 align="center">Свой вид</h3>
 
-Occasionally, you might observe the following message in your build log:
-```
-"/Users/xxx/Library/Developer/Xcode/DerivedData/Telegram-xxx/Build/Intermediates.noindex/XCBuildData/xxx.xcbuilddata/build-request.json" not updated yet, waiting...
-```
+<p align="center">
+  <img src=".github/assets/icon-classic.png" width="84" alt="Классика">&nbsp;
+  <img src=".github/assets/icon-mint.png" width="84" alt="Мята">&nbsp;
+  <img src=".github/assets/icon-white.png" width="84" alt="Белая">&nbsp;
+  <img src=".github/assets/icon-night.png" width="84" alt="Ночь">&nbsp;
+  <img src=".github/assets/icon-wave.png" width="84" alt="Волна">&nbsp;
+  <img src=".github/assets/icon-outline.png" width="84" alt="Контур">
+</p>
 
-Should this occur, simply cancel the ongoing build and initiate a new one.
+<p align="center">
+  Шесть иконок приложения, форма аватарок от круга до квадрата,<br>
+  стиль удалённых сообщений и свой значок рядом с ними.
+</p>
 
-## Telegram_xcodeproj: no such package 
+<br>
 
-Following a system restart, the auto-generated Xcode project might encounter a build failure accompanied by this error:
-```
-ERROR: Skipping '@rules_xcodeproj_generated//generator/Telegram/Telegram_xcodeproj:Telegram_xcodeproj': no such package '@rules_xcodeproj_generated//generator/Telegram/Telegram_xcodeproj': BUILD file not found in directory 'generator/Telegram/Telegram_xcodeproj' of external repository @rules_xcodeproj_generated. Add a BUILD file to a directory to mark it as a package.
-```
+## Установка
 
-If you encounter this issue, re-run the project generation steps in the README.
+Сборки неподписанные, поэтому ставятся через [AltStore](https://altstore.io):
 
+1. Скачай `Chogram.ipa` со [страницы релизов](https://github.com/nexxzaid/chogram/releases/latest).
+2. В AltStore открой **My Apps**, нажми **+** и выбери файл.
+3. С бесплатным Apple ID подпись живёт 7 дней, потом приложение надо обновить в AltStore.
 
-# Tips
+Пуш-уведомлений нет: расширения отключены, а сертификат APNs при такой установке недоступен.
 
-## Codesigning is not required for simulator-only builds
+## Сборка
 
-Add `--disableProvisioningProfiles`:
-```
-python3 build-system/Make/Make.py \
-    --cacheDir="$HOME/telegram-bazel-cache" \
-    generateProject \
-    --configurationPath=path-to-configuration.json \
-    --codesigningInformationPath=path-to-provisioning-data \
-    --disableProvisioningProfiles
-```
+Сборку делает GitHub Actions, собственный Mac не нужен.
 
-## Versions
+1. Сделай форк и получи `api_id` и `api_hash` на [my.telegram.org](https://my.telegram.org/apps).
+2. Добавь их в секреты репозитория как `TELEGRAM_API_ID` и `TELEGRAM_API_HASH`.
+3. Запушь в ветку `chogram`. Готовый `.ipa` появится в релизах.
 
-Each release is built using a specific Xcode version (see `versions.json`). The helper script checks the versions of the installed software and reports an error if they don't match the ones specified in `versions.json`. It is possible to bypass these checks:
+Первая сборка занимает около часа. Настройка лежит в [`.github/workflows/chogram.yml`](.github/workflows/chogram.yml).
 
-```
-python3 build-system/Make/Make.py --overrideXcodeVersion build ... # Don't check the version of Xcode
-```
+## Что важно знать
+
+- Это **неофициальный клиент**, он не связан с Telegram и не поддерживается им.
+- Часть функций нарушает условия использования Telegram API. Ответственность за свой аккаунт на тебе.
+- Секретные чаты и одноразовые фото и видео намеренно не сохраняются.
+- Удалённые сообщения хранятся только на твоём устройстве.
+
+<br>
+
+<details>
+<summary>Откуда код</summary>
+<br>
+
+Чограм основан на [Telegram-iOS](https://github.com/TelegramMessenger/Telegram-iOS) и наследует условия его лицензии, поэтому исходный код открыт. Иконки интерфейса взяты из набора [Solar](https://github.com/480-Design/Solar-Icon-Set).
+
+</details>
