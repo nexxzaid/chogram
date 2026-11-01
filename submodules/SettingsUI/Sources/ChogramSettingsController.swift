@@ -227,6 +227,7 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
     let store = ChogramSettingsStore()
 
     let deletedMessagesCountPromise = Promise<Int>()
+    deletedMessagesCountPromise.set(context.engine.messages.chogramDeletedMessagesCount())
     let appIconNamePromise = ValuePromise<String?>(context.sharedContext.applicationBindings.getAlternateIconName(), ignoreRepeated: true)
 
     var pushControllerImpl: ((ViewController) -> Void)?
