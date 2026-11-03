@@ -2259,6 +2259,15 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
                 controller.present(tooltipController, in: .current)
             }
             
+            self.headerNode.displayChogramBadgeInfo = { [weak self] badge in
+                guard let self else {
+                    return
+                }
+                let theme = self.presentationData.theme
+                let sheet = ChogramBadgeSheetController(badge: badge, isDark: theme.overallDarkAppearance, backgroundColor: theme.list.blocksBackgroundColor, textColor: theme.list.itemPrimaryTextColor, secondaryTextColor: theme.list.itemSecondaryTextColor)
+                self.context.sharedContext.applicationBindings.presentNativeController(sheet)
+            }
+            
             self.headerNode.displayStatusPremiumIntro = { [weak self] in
                 guard let self else {
                     return

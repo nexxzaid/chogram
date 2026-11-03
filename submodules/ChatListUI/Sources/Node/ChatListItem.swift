@@ -2501,6 +2501,7 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
             var currentMutedIconImage: UIImage?
             var currentCredibilityIconContent: EmojiStatusComponent.Content?
             var currentVerifiedIconContent: EmojiStatusComponent.Content?
+            var chogramLeadingBadge = false
             var currentStatusIconContent: EmojiStatusComponent.Content?
             var currentStatusIconParticleColor: UIColor?
             var currentSecretIconImage: UIImage?
@@ -3586,8 +3587,10 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                             if let verificationIconFileId = peer.verificationIconFileId {
                                 currentVerifiedIconContent = .animation(content: .customEmoji(fileId: verificationIconFileId), size: CGSize(width: 32.0, height: 32.0), placeholderColor: item.presentationData.theme.list.mediaPlaceholderColor, themeColor: item.presentationData.theme.list.itemAccentColor, loopMode: .count(0))
                             }
-                            if ChogramBadges.shared.badge(peerId: peer.id) != nil {
-                                currentCredibilityIconContent = .image(image: UIImage(bundleImageName: "Chogram/BadgeSmall"), tintColor: nil)
+                            // The badge takes the leading slot before the name unless a verification icon has it.
+                            if ChogramBadges.shared.badge(peerId: peer.id) != nil && currentVerifiedIconContent == nil {
+                                currentVerifiedIconContent = .image(image: UIImage(bundleImageName: "Chogram/BadgeSmall"), tintColor: nil)
+                                chogramLeadingBadge = true
                             }
                         }
                     default:
@@ -3626,9 +3629,12 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                 titleIconsWidth += currentSecretIconImage.size.width + 2.0
             }
             
+            let chogramHasLeadingBadge = chogramLeadingBadge
             var titleLeftOffset: CGFloat = 0.0
             if let currentVerifiedIconContent {
                 if titleLeftOffset.isZero, case .animation = currentVerifiedIconContent {
+                    titleLeftOffset += 19.0
+                } else if titleLeftOffset.isZero, chogramHasLeadingBadge {
                     titleLeftOffset += 19.0
                 }
                 
@@ -5306,6 +5312,8 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                         
                         let iconOrigin: CGFloat
                         if case .animation = currentVerifiedIconContent {
+                            iconOrigin = contentRect.origin.x
+                        } else if chogramHasLeadingBadge {
                             iconOrigin = contentRect.origin.x
                         } else {
                             iconOrigin = nextTitleIconOrigin

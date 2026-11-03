@@ -547,11 +547,13 @@ private func chogramAuthorName(_ name: NSAttributedString, authorId: EnginePeer.
     guard let authorId, name.length != 0, ChogramBadges.shared.badge(peerId: authorId) != nil, let image = UIImage(bundleImageName: "Chogram/BadgeSmall") else {
         return name
     }
-    let result = NSMutableAttributedString(attributedString: name)
-    var attributes = name.attributes(at: 0, effectiveRange: nil)
+    // The badge goes before the name, so the author's emoji status after it stays visible.
+    let baseAttributes = name.attributes(at: 0, effectiveRange: nil)
+    var attributes = baseAttributes
     attributes[.attachment] = image.withRenderingMode(.alwaysOriginal)
-    result.append(NSAttributedString(string: " "))
-    result.append(NSAttributedString(string: "\u{2003}", attributes: attributes))
+    let result = NSMutableAttributedString(string: "\u{2003}", attributes: attributes)
+    result.append(NSAttributedString(string: " ", attributes: baseAttributes))
+    result.append(name)
     return result
 }
 

@@ -137,6 +137,12 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     let titleExpandedStatusIconView: ComponentHostView<Empty>
     var titleExpandedStatusIconSize: CGSize?
     
+    let chogramBadgeView: UIImageView
+    let chogramExpandedBadgeView: UIImageView
+    var chogramBadge: ChogramBadge?
+    var chogramPillView: ChogramDeveloperPillView?
+    var displayChogramBadgeInfo: ((ChogramBadge) -> Void)?
+    
     var subtitleRating: ComponentView<Empty>?
     
     let subtitleNodeContainer: ASDisplayNode
@@ -248,6 +254,18 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         
         self.titleExpandedStatusIconView = ComponentHostView<Empty>()
         self.titleNode.stateNode(forKey: TitleNodeStateExpanded)?.view.addSubview(self.titleExpandedStatusIconView)
+        
+        self.chogramBadgeView = UIImageView(image: UIImage(bundleImageName: "Chogram/Badge"))
+        self.chogramBadgeView.contentMode = .scaleAspectFit
+        self.chogramBadgeView.isUserInteractionEnabled = true
+        self.chogramBadgeView.isHidden = true
+        self.titleNode.stateNode(forKey: TitleNodeStateRegular)?.view.addSubview(self.chogramBadgeView)
+        
+        self.chogramExpandedBadgeView = UIImageView(image: UIImage(bundleImageName: "Chogram/Badge"))
+        self.chogramExpandedBadgeView.contentMode = .scaleAspectFit
+        self.chogramExpandedBadgeView.isUserInteractionEnabled = true
+        self.chogramExpandedBadgeView.isHidden = true
+        self.titleNode.stateNode(forKey: TitleNodeStateExpanded)?.view.addSubview(self.chogramExpandedBadgeView)
         
         self.subtitleNodeContainer = ASDisplayNode()
         self.subtitleNodeRawContainer = ASDisplayNode()
@@ -392,6 +410,15 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         
         let phoneGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(self.handlePhoneLongPress(_:)))
         self.subtitleNodeRawContainer.view.addGestureRecognizer(phoneGestureRecognizer)
+        
+        self.chogramBadgeView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.handleChogramBadgeTap)))
+        self.chogramExpandedBadgeView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.handleChogramBadgeTap)))
+    }
+    
+    @objc private func handleChogramBadgeTap() {
+        if let chogramBadge = self.chogramBadge {
+            self.displayChogramBadgeInfo?(chogramBadge)
+        }
     }
     
     @objc private func handleUsernameLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
@@ -628,10 +655,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             if let verificationIconFileId = peer.verificationIconFileId {
                 verifiedIcon = .emojiStatus(PeerEmojiStatus(content: .emoji(fileId: verificationIconFileId), expirationDate: nil))
             }
-            if ChogramBadges.shared.badge(peerId: peer.id) != nil {
-                credibilityIcon = .chogramBadge
-            }
         }
+        self.chogramBadge = peer.flatMap { ChogramBadges.shared.badge(peerId: $0.id) }
         
         var isForum = false
         if case let .channel(channel) = peer, channel.isForumOrMonoForum {
@@ -733,6 +758,11 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         var panelWithAvatarHeight: CGFloat = 35.0 + avatarSize
         if threadData != nil {
             panelWithAvatarHeight += 10.0
+        }
+        let chogramPillSpacing: CGFloat = 8.0
+        let showsChogramPill = self.chogramBadge != nil && !state.isEditing
+        if showsChogramPill {
+            panelWithAvatarHeight += ChogramDeveloperPillView.height + chogramPillSpacing
         }
         
         let innerBackgroundTransitionFraction: CGFloat
@@ -1714,6 +1744,32 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
         }
         
+        if self.chogramBadge != nil {
+            // The badge goes before the name, so the emoji status and the premium star keep their place.
+            let badgeSize = CGSize(width: 24.0, height: 24.0)
+            let expandedBadgeSize = CGSize(width: 20.0, height: 20.0)
+            let badgeSpacing: CGFloat = 6.0
+            var leadingX: CGFloat = 0.0
+            var expandedLeadingX: CGFloat = 0.0
+            if let verifiedIconSize = self.verifiedIconSize, let titleExpandedVerifiedIconSize = self.titleExpandedVerifiedIconSize, verifiedIconSize.width > 0.0 {
+                if case .verified = verifiedIcon {
+                } else {
+                    leadingX = -verifiedIconSize.width - 4.0
+                    expandedLeadingX = -titleExpandedVerifiedIconSize.width - 4.0
+                }
+            }
+            titleHorizontalOffset += (badgeSize.width + badgeSpacing) / 2.0
+            titleExpandedHorizontalOffset += expandedBadgeSize.width + badgeSpacing
+            
+            self.chogramBadgeView.isHidden = false
+            self.chogramExpandedBadgeView.isHidden = false
+            transition.updateFrame(view: self.chogramBadgeView, frame: CGRect(origin: CGPoint(x: leadingX - badgeSpacing - badgeSize.width, y: floor((titleSize.height - badgeSize.height) / 2.0)), size: badgeSize))
+            transition.updateFrame(view: self.chogramExpandedBadgeView, frame: CGRect(origin: CGPoint(x: expandedLeadingX - badgeSpacing - expandedBadgeSize.width, y: floor((titleExpandedSize.height - expandedBadgeSize.height) / 2.0) + 1.0), size: expandedBadgeSize))
+        } else {
+            self.chogramBadgeView.isHidden = true
+            self.chogramExpandedBadgeView.isHidden = true
+        }
+        
         var titleFrame: CGRect
         var subtitleFrame: CGRect
         let usernameFrame: CGRect
@@ -1783,6 +1839,28 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 subtitleFrame = CGRect(origin: CGPoint(x: (hasStrip ? bandCenteredOrigin(width: totalSubtitleWidth, margin: 16.0) : floorToScreenPixels((width - totalSubtitleWidth) / 2.0)) + subtitleLeadingInset - subtitleButtonHorizontalOffset * (1.0 - titleCollapseFraction), y: titleFrame.maxY + 1.0), size: subtitleSize)
                 usernameFrame = CGRect(origin: CGPoint(x: subtitleFrame.maxX + usernameSpacing, y: titleFrame.maxY + 1.0), size: usernameSize)
             }
+        }
+        
+        if showsChogramPill, let chogramBadge = self.chogramBadge {
+            let pillView: ChogramDeveloperPillView
+            if let current = self.chogramPillView {
+                pillView = current
+            } else {
+                pillView = ChogramDeveloperPillView()
+                pillView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.handleChogramBadgeTap)))
+                self.chogramPillView = pillView
+                self.regularContentNode.view.addSubview(pillView)
+            }
+            let pillSize = pillView.update(title: chogramBadge.title, isDark: presentationData.theme.overallDarkAppearance)
+            let pillX = hasStrip ? bandCenteredOrigin(width: pillSize.width, margin: 16.0) : floorToScreenPixels((width - pillSize.width) / 2.0)
+            let pillFrame = CGRect(origin: CGPoint(x: pillX, y: subtitleFrame.maxY + chogramPillSpacing + titleOffset), size: pillSize)
+            let pillAlpha: CGFloat = self.isAvatarExpanded ? 0.0 : max(0.0, 1.0 - titleCollapseFraction * 2.0)
+            transition.updateFrame(view: pillView, frame: pillFrame)
+            transition.updateAlpha(layer: pillView.layer, alpha: pillAlpha)
+            pillView.isUserInteractionEnabled = pillAlpha > 0.5
+        } else if let pillView = self.chogramPillView {
+            self.chogramPillView = nil
+            pillView.removeFromSuperview()
         }
         
         let titleMinScale: CGFloat = 0.6
@@ -2826,6 +2904,16 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         let setByFrame = self.avatarListNode.listContainerNode.setByYouNode.view.convert(self.avatarListNode.listContainerNode.setByYouNode.bounds, to: self.view).insetBy(dx: -44.0, dy: 0.0)
         if self.avatarListNode.listContainerNode.setByYouNode.alpha > 0.0, setByFrame.contains(point) {
             return self.avatarListNode.listContainerNode.setByYouNode.view
+        }
+        
+        if self.chogramBadge != nil && !(self.state?.isEditing ?? false) {
+            let badgeView = self.isAvatarExpanded ? self.chogramExpandedBadgeView : self.chogramBadgeView
+            if !badgeView.isHidden, badgeView.convert(badgeView.bounds, to: self.view).insetBy(dx: -8.0, dy: -8.0).contains(point) {
+                return badgeView
+            }
+            if let pillView = self.chogramPillView, pillView.isUserInteractionEnabled, pillView.frame.contains(self.view.convert(point, to: pillView.superview)) {
+                return pillView
+            }
         }
         
         if !(self.state?.isEditing ?? false) {
