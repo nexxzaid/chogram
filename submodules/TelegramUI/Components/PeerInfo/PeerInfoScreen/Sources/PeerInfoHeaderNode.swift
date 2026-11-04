@@ -186,6 +186,10 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         if let view = self.walletBalance?.view {
             views.append(view)
         }
+        // The Chogram label sits under the status, so it travels with it in the chat → profile expansion.
+        if let view = self.chogramPillView {
+            views.append(view)
+        }
         return views
     }
     let headerEdgeEffectContainer: UIView
