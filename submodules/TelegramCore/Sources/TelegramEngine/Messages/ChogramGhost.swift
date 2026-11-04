@@ -1,7 +1,7 @@
 import Foundation
 import Postbox
 import SwiftSignalKit
-import TelegramApi
+internal import TelegramApi
 
 // With ghost mode hiding read receipts, replying in a chat still marks that chat read on the
 // server: an answer next to unread messages looks odd to the other side. Only the chat the user
