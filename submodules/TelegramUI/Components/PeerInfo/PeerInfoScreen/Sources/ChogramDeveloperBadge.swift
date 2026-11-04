@@ -92,9 +92,8 @@ final class ChogramBadgeSheetController: UIViewController {
         }
         if #available(iOS 15.0, *), let sheet = self.sheetPresentationController {
             if #available(iOS 16.0, *) {
-                let hasDescription = badge.description != nil
                 sheet.detents = [.custom(resolver: { _ in
-                    return hasDescription ? 520.0 : 470.0
+                    return 400.0
                 })]
             } else {
                 sheet.detents = [.medium()]
@@ -210,17 +209,7 @@ final class ChogramBadgeSheetController: UIViewController {
         titleLabel.textAlignment = .center
         titleLabel.numberOfLines = 0
 
-        let subtitleLabel = UILabel()
-        subtitleLabel.text = "Значок выдаёт сервер Чограма"
-        subtitleLabel.font = Font.regular(15.0)
-        subtitleLabel.textColor = self.colors.secondaryText
-        subtitleLabel.textAlignment = .center
-
-        var rows: [(String, String, Bool)] = [("Кто", self.holderName, true), ("Значок", self.badge.title, false)]
-        if let description = self.badge.description, !description.isEmpty {
-            rows.append(("Описание", description, false))
-        }
-        let table = self.tableView(rows: rows)
+        let table = self.tableView(rows: [("Кто", self.holderName, true)])
 
         let aboutButton = UIButton(type: .system)
         aboutButton.setTitle("Что такое Чограм?", for: .normal)
@@ -236,7 +225,7 @@ final class ChogramBadgeSheetController: UIViewController {
         okButton.layer.cornerRadius = 25.0
         okButton.addTarget(self, action: #selector(self.closePressed), for: .touchUpInside)
 
-        for view in [closeButton, iconView, titleLabel, subtitleLabel, table, aboutButton, okButton] as [UIView] {
+        for view in [closeButton, iconView, titleLabel, table, aboutButton, okButton] as [UIView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             self.view.addSubview(view)
         }
@@ -254,11 +243,7 @@ final class ChogramBadgeSheetController: UIViewController {
             titleLabel.leadingAnchor.constraint(equalTo: self.view.leadingAnchor, constant: 24.0),
             titleLabel.trailingAnchor.constraint(equalTo: self.view.trailingAnchor, constant: -24.0),
 
-            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4.0),
-            subtitleLabel.leadingAnchor.constraint(equalTo: self.view.leadingAnchor, constant: 24.0),
-            subtitleLabel.trailingAnchor.constraint(equalTo: self.view.trailingAnchor, constant: -24.0),
-
-            table.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 20.0),
+            table.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 20.0),
             table.leadingAnchor.constraint(equalTo: self.view.leadingAnchor, constant: 16.0),
             table.trailingAnchor.constraint(equalTo: self.view.trailingAnchor, constant: -16.0),
 

@@ -1873,7 +1873,12 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
             let pillSize = pillView.update(title: chogramPillTitle, isDark: presentationData.theme.overallDarkAppearance, isOutlined: self.chogramBadge == nil)
             let pillX = hasStrip ? bandCenteredOrigin(width: pillSize.width, margin: 16.0) : floorToScreenPixels((width - pillSize.width) / 2.0)
-            let pillFrame = CGRect(origin: CGPoint(x: pillX, y: subtitleFrame.maxY + chogramPillSpacing + titleOffset), size: pillSize)
+            // Under the status, or under the wallet balance when the profile shows one.
+            var pillTop = max(subtitleFrame.maxY, usernameFrame.maxY) + chogramPillSpacing
+            if currentWalletBalance != nil && !self.isAvatarExpanded && !self.isSettings {
+                pillTop += 20.0 + chogramPillSpacing
+            }
+            let pillFrame = CGRect(origin: CGPoint(x: pillX, y: pillTop + titleOffset), size: pillSize)
             let pillAlpha: CGFloat = self.isAvatarExpanded ? 0.0 : max(0.0, 1.0 - titleCollapseFraction * 2.0)
             transition.updateFrame(view: pillView, frame: pillFrame)
             transition.updateAlpha(layer: pillView.layer, alpha: pillAlpha)
@@ -2143,6 +2148,10 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             let contentBelowBalance: CGFloat = self.isMyProfile ? 16.0 : 12.0 + 58.0 + 16.0
             let existingHeaderExtension: CGFloat = self.isMyProfile ? 20.0 : 99.0
             panelWithAvatarHeight = balanceBottom + contentBelowBalance - navigationHeight - existingHeaderExtension
+            // The balance recomputes the header height from scratch; the Chogram label below it needs its row back.
+            if showsChogramPill {
+                panelWithAvatarHeight += ChogramDeveloperPillView.height + chogramPillSpacing
+            }
         }
 
         let rawHeight: CGFloat
