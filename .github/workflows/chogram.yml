@@ -2,7 +2,7 @@ name: Chogram
 
 on:
   push:
-    branches: [ chogram, chogram-13.1 ]
+    branches: [ chogram ]
 
   workflow_dispatch:
 
