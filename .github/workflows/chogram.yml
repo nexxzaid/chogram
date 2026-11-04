@@ -81,8 +81,19 @@ jobs:
         run: |
           set -x
 
-          APP_VERSION=$(python3 -c 'import json;print(json.load(open("versions.json"))["app"])')
           BUILD_NUMBER=$(($(cat build_number_offset) + $GITHUB_RUN_NUMBER))
+          # SideStore offers an update only when the version (not the build) grows, so the build
+          # number becomes the patch: Telegram 13.1.2 ships as 13.1.<build>.
+          python3 - "$BUILD_NUMBER" <<'PY'
+          import json, sys
+          with open('versions.json') as file:
+              versions = json.load(file)
+          major, minor = versions['app'].split('.')[:2]
+          versions['app'] = '{}.{}.{}'.format(major, minor, sys.argv[1])
+          with open('versions.json', 'w') as file:
+              json.dump(versions, file, indent=4)
+          PY
+          APP_VERSION=$(python3 -c 'import json;print(json.load(open("versions.json"))["app"])')
           echo "APP_VERSION=$APP_VERSION" >> $GITHUB_ENV
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
 
