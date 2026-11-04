@@ -202,7 +202,11 @@
              __strong TGModernGalleryController *controller = strongSelf.controller;
              if ([controller.currentItem conformsToProtocol:@protocol(TGModernGalleryEditableItem)]) {
                  bool isPhoto = [controller.currentItem isKindOfClass:[TGMediaPickerGalleryPhotoItem class]] || ([controller.currentItem isKindOfClass:[TGMediaPickerGalleryFetchResultItem class]] && [((TGMediaPickerGalleryFetchResultItem *)controller.currentItem).backingItem isKindOfClass:[TGMediaPickerGalleryPhotoItem class]]);
-                 if (tab == TGPhotoEditorQualityTab && isPhoto) {
+                 if (tab == TGPhotoEditorRoundVideoTab) {
+                     // Chogram: the send path reads this mark and turns the video into a round one.
+                     [[NSUserDefaults standardUserDefaults] setDouble:[NSDate date].timeIntervalSince1970 forKey:@"chogram.sendVideoAsRound"];
+                     [strongSelf->_interfaceView chogramSendCurrent];
+                 } else if (tab == TGPhotoEditorQualityTab && isPhoto) {
                      [strongSelf->_editingContext setHighQualityPhoto:!strongSelf->_editingContext.isHighQualityPhoto];
                      [strongSelf->_interfaceView showPhotoQualityTooltip:strongSelf->_editingContext.isHighQualityPhoto];
                  } else {

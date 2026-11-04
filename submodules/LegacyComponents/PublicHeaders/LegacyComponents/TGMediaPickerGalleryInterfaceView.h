@@ -41,6 +41,7 @@
 
 - (void)setSelectedItemsModel:(TGMediaPickerGallerySelectedItemsModel *)selectedItemsModel;
 - (void)setEditorTabPressed:(void (^)(TGPhotoEditorTab tab))editorTabPressed;
+- (void)chogramSendCurrent;
 
 - (void)setThumbnailSignalForItem:(SSignal *(^)(id))thumbnailSignalForItem;
 

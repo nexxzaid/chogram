@@ -367,12 +367,58 @@ public struct LegacyAssetPickerEnqueueMessage {
     public var isFile: Bool
 }
 
+// Chogram: the editor's round video button leaves a time mark and presses Send. A mark older than a
+// minute is stale (the send went through some other path) and is dropped.
+private func chogramConsumeRoundVideoMark() -> Bool {
+    let defaults = UserDefaults.standard
+    let markTime = defaults.double(forKey: "chogram.sendVideoAsRound")
+    guard markTime > 0.0 else {
+        return false
+    }
+    defaults.removeObject(forKey: "chogram.sendVideoAsRound")
+    return Date().timeIntervalSince1970 - markTime < 60.0
+}
+
+// A round video is the centered square of the frame (of the user's crop, if any), at most a minute
+// long, encoded with the video message preset. This matches what Telegram does when sharing a video
+// as a round message.
+private func chogramRoundVideoAdjustments(original: TGVideoEditAdjustments?, originalSize: CGSize, duration: Double) -> TGVideoEditAdjustments {
+    var baseRect = CGRect(origin: CGPoint(), size: originalSize)
+    if let original, original.cropApplied(forAvatar: false) {
+        baseRect = original.cropRect
+    }
+    let side = min(baseRect.width, baseRect.height)
+    let cropRect = CGRect(x: baseRect.midX - side / 2.0, y: baseRect.midY - side / 2.0, width: side, height: side)
+    var trimStart: Double = 0.0
+    var trimEnd: Double = duration
+    if let original, original.trimApplied() {
+        trimStart = original.trimStartValue
+        trimEnd = original.trimEndValue
+    }
+    trimEnd = min(trimEnd, trimStart + 60.0)
+    return TGVideoEditAdjustments(
+        originalSize: originalSize,
+        cropRect: cropRect,
+        cropOrientation: original?.cropOrientation ?? .up,
+        cropRotation: original?.cropRotation ?? 0.0,
+        cropLockedAspectRatio: 1.0,
+        cropMirrored: original?.cropMirrored ?? false,
+        trimStartValue: trimStart,
+        trimEndValue: trimEnd,
+        toolValues: original?.toolValues,
+        paintingData: original?.paintingData,
+        sendAsGif: false,
+        preset: TGMediaVideoConversionPresetVideoMessage
+    )
+}
+
 public func legacyAssetPickerEnqueueMessages(
     context: AccountContext,
     account: Account,
     signals: [Any],
     originalMediaReference: AnyMediaReference? = nil
 ) -> Signal<[LegacyAssetPickerEnqueueMessage], Void> {
+    let chogramSendAsRound = chogramConsumeRoundVideoMark()
     return Signal { subscriber in
         let disposable = SSignal.combineSignals(signals).start(next: { anyValues in
             var messages: [LegacyAssetPickerEnqueueMessage] = []
@@ -806,7 +852,19 @@ public func legacyAssetPickerEnqueueMessages(
                                 default:
                                     break
                             }
-                        case let .video(data, thumbnail, cover, adjustments, caption, asFile, asAnimation, stickers):
+                        case let .video(data, thumbnail, cover, sourceAdjustments, caption, asFile, asAnimation, stickers):
+                            let isChogramRound = chogramSendAsRound && !asFile && !asAnimation
+                            let adjustments: TGVideoEditAdjustments?
+                            if isChogramRound {
+                                switch data {
+                                case let .asset(asset):
+                                    adjustments = chogramRoundVideoAdjustments(original: sourceAdjustments, originalSize: asset.dimensions, duration: asset.videoDuration)
+                                case let .tempFile(_, dimensions, duration):
+                                    adjustments = chogramRoundVideoAdjustments(original: sourceAdjustments, originalSize: dimensions, duration: duration)
+                                }
+                            } else {
+                                adjustments = sourceAdjustments
+                            }
                             var finalDimensions: CGSize
                             var finalDuration: Double
                             switch data {
@@ -880,7 +938,9 @@ public func legacyAssetPickerEnqueueMessages(
                             if asAnimation {
                                 preset = TGMediaVideoConversionPresetAnimation
                             }
-                            if !asAnimation {
+                            if isChogramRound {
+                                finalDimensions = TGMediaVideoConverter.dimensions(for: finalDimensions, adjustments: adjustments, preset: TGMediaVideoConversionPresetVideoMessage)
+                            } else if !asAnimation {
                                 finalDimensions = TGMediaVideoConverter.dimensions(for: finalDimensions, adjustments: adjustments, preset: TGMediaVideoConversionPresetCompressedMedium)
                             }
                             
@@ -921,12 +981,14 @@ public func legacyAssetPickerEnqueueMessages(
                             let estimatedSize = TGMediaVideoConverter.estimatedSize(for: preset, duration: finalDuration, hasAudio: !asAnimation)
                             
                             var fileAttributes: [TelegramMediaFileAttribute] = []
-                            fileAttributes.append(.FileName(fileName: fileName))
+                            if !isChogramRound {
+                                fileAttributes.append(.FileName(fileName: fileName))
+                            }
                             if asAnimation {
                                 fileAttributes.append(.Animated)
                             }
                             if !asFile {
-                                let flags: TelegramMediaVideoFlags = [.supportsStreaming]
+                                let flags: TelegramMediaVideoFlags = isChogramRound ? [.instantRoundVideo] : [.supportsStreaming]
                                 fileAttributes.append(.Video(duration: finalDuration, size: PixelDimensions(finalDimensions), flags: flags, preloadSize: nil, coverTime: nil, videoCodec: nil))
                                 if let adjustments = adjustments {
                                     if adjustments.sendAsGif {

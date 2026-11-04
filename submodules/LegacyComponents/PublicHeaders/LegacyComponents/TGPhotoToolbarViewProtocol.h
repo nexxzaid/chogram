@@ -16,7 +16,9 @@ typedef NS_OPTIONS(NSUInteger, TGPhotoEditorTab) {
     TGPhotoEditorAspectRatioTab = 1 << 10,
     TGPhotoEditorTintTab        = 1 << 11,
     TGPhotoEditorBlurTab        = 1 << 12,
-    TGPhotoEditorCurvesTab      = 1 << 13
+    TGPhotoEditorCurvesTab      = 1 << 13,
+    // Chogram: sends the current video as a round video message.
+    TGPhotoEditorRoundVideoTab  = 1 << 14
 };
 
 typedef enum

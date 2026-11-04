@@ -23,6 +23,7 @@ private let toolbarTabOrder: [TGPhotoEditorTab] = [
     .toolsTab,
     .rotateTab,
     .qualityTab,
+    .roundVideoTab,
     .timerTab,
     .mirrorTab,
     .aspectRatioTab,
@@ -36,6 +37,7 @@ private let dontHighlightOnSelectionTabs = Set<UInt>([
     TGPhotoEditorTab.stickerTab.rawValue,
     TGPhotoEditorTab.textTab.rawValue,
     TGPhotoEditorTab.qualityTab.rawValue,
+    TGPhotoEditorTab.roundVideoTab.rawValue,
     TGPhotoEditorTab.timerTab.rawValue,
     TGPhotoEditorTab.mirrorTab.rawValue,
     TGPhotoEditorTab.aspectRatioTab.rawValue
@@ -798,6 +800,8 @@ private final class MediaPickerPhotoToolbarComponent: Component {
                 return "Media Editor/Blur"
             case .curvesTab:
                 return "Media Editor/Curves"
+            case .roundVideoTab:
+                return "Chogram/RoundVideo"
             default:
                 return "Media Editor/Crop"
             }

@@ -90,7 +90,7 @@
     } else if ([self.asset isKindOfClass:[TGMediaAsset class]] && ((TGMediaAsset *)self.asset).type == TGMediaAssetPhotoType) {
         return TGPhotoEditorCropTab | TGPhotoEditorPaintTab | TGPhotoEditorToolsTab;
     } else {
-        return TGPhotoEditorCropTab | TGPhotoEditorToolsTab | TGPhotoEditorPaintTab | TGPhotoEditorQualityTab;
+        return TGPhotoEditorCropTab | TGPhotoEditorToolsTab | TGPhotoEditorPaintTab | TGPhotoEditorQualityTab | TGPhotoEditorRoundVideoTab;
     }
 }
 

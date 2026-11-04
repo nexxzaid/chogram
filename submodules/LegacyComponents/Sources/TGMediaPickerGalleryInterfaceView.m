@@ -636,6 +636,12 @@ static TGMediaLivePhotoMode TGMediaPickerGalleryResolvedLivePhotoMode(NSNumber *
     _setGesturesEnabled = [setGesturesEnabled copy];
 }
 
+- (void)chogramSendCurrent
+{
+    if (_portraitToolbarView.donePressed != nil)
+        _portraitToolbarView.donePressed();
+}
+
 - (void)setEditorTabPressed:(void (^)(TGPhotoEditorTab tab))editorTabPressed
 {
     __weak TGMediaPickerGalleryInterfaceView *weakSelf = self;
