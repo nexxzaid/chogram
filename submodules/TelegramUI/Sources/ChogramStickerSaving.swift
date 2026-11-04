@@ -2,7 +2,6 @@ import Foundation
 import UIKit
 import Photos
 import Display
-import Postbox
 import SwiftSignalKit
 import TelegramCore
 import AccountContext
@@ -12,8 +11,8 @@ import WebPBinding
 // "Сохранить как картинку" for a sticker. A static sticker is saved at full size as a PNG with
 // its transparent background; an animated or video sticker has no single image, so its preview
 // frame is saved instead.
-func chogramSaveStickerAsImage(context: AccountContext, message: Message, file: TelegramMediaFile, present: @escaping (ViewController) -> Void) {
-    let resource: MediaResource
+func chogramSaveStickerAsImage(context: AccountContext, message: EngineRawMessage, file: TelegramMediaFile, present: @escaping (ViewController) -> Void) {
+    let resource: TelegramMediaResource
     if file.isStaticSticker || (!file.isAnimatedSticker && !file.isVideoSticker) {
         resource = file.resource
     } else if let preview = file.previewRepresentations.last {
@@ -23,11 +22,10 @@ func chogramSaveStickerAsImage(context: AccountContext, message: Message, file: 
     }
 
     let presentationData = context.sharedContext.currentPresentationData.with { $0 }
-    let mediaBox = context.account.postbox.mediaBox
-    let fetch = fetchedMediaResource(mediaBox: mediaBox, userLocation: .peer(message.id.peerId), userContentType: .sticker, reference: .media(media: .message(message: MessageReference(message), media: file), resource: resource)).startStandalone()
+    let fetch = context.engine.resources.fetch(reference: .media(media: .message(message: MessageReference(message), media: file), resource: resource), userLocation: .peer(message.id.peerId), userContentType: .sticker).startStandalone()
 
-    let _ = (mediaBox.resourceData(resource, option: .complete(waitUntilFetchStatus: false))
-    |> filter { $0.complete }
+    let _ = (context.engine.resources.data(resource: EngineMediaResource(resource))
+    |> filter { $0.isComplete }
     |> take(1)
     |> deliverOnMainQueue).startStandalone(next: { data in
         fetch.dispose()
