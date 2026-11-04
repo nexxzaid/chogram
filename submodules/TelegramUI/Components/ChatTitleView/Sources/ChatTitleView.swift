@@ -649,7 +649,15 @@ public final class ChatTitleView: UIView, NavigationBarTitleView {
                                             userPresence = TelegramUserPresence(status: .none, lastActivity: 0)
                                         }
                                         let (string, activity) = stringAndActivityForUserPresence(strings: self.strings, dateTimeFormat: self.dateTimeFormat, presence: EnginePeer.Presence(userPresence), relativeTo: Int32(timestamp))
-                                        let attributedString = NSAttributedString(string: string, font: subtitleFont, textColor: activity ? titleTheme.rootController.navigationBar.accentTextColor : titleTheme.rootController.navigationBar.secondaryTextColor)
+                                        let attributedString: NSAttributedString
+                                        if ChogramSettings.current.usernameInHeader, let username = peer.addressName {
+                                            // The username goes first in the secondary color, the presence keeps its own color.
+                                            let combined = NSMutableAttributedString(attributedString: NSAttributedString(string: "@\(username) · ", font: subtitleFont, textColor: titleTheme.rootController.navigationBar.secondaryTextColor))
+                                            combined.append(NSAttributedString(string: string, font: subtitleFont, textColor: activity ? titleTheme.rootController.navigationBar.accentTextColor : titleTheme.rootController.navigationBar.secondaryTextColor))
+                                            attributedString = combined
+                                        } else {
+                                            attributedString = NSAttributedString(string: string, font: subtitleFont, textColor: activity ? titleTheme.rootController.navigationBar.accentTextColor : titleTheme.rootController.navigationBar.secondaryTextColor)
+                                        }
                                         state = .info(attributedString, activity ? .online : .lastSeenTime)
                                     } else {
                                         let string = NSAttributedString(string: "", font: subtitleFont, textColor: titleTheme.rootController.navigationBar.secondaryTextColor)

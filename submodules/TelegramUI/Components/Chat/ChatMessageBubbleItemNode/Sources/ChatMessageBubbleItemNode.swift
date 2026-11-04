@@ -1877,6 +1877,15 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
             if let subject = item.associatedData.subject, case let .customChatContents(contents) = subject, case .hashTagSearch = contents.kind {
                 hasAvatar = true
             }
+            
+            // "Личные чаты как группа": names on both sides and an avatar for the other side, as in a group.
+            if peerId.namespace == Namespaces.Peer.CloudUser && !peerId.isRepliesOrSavedMessages(accountPeerId: item.context.account.peerId) && item.associatedData.subject == nil && ChogramSettings.current.personalChatAsGroup && effectiveAuthor != nil {
+                displayAuthorInfo = !mergedTop.merged
+                ignoreNameHiding = true
+                if incoming {
+                    hasAvatar = true
+                }
+            }
         }
         
         if isPreview, let peer = firstMessage.peers[firstMessage.id.peerId] as? TelegramUser, peer.firstName == nil {

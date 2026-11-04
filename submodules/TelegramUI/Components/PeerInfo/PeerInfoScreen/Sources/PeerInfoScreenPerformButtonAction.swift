@@ -469,6 +469,16 @@ extension PeerInfoScreenNode {
                     }
                     let peerId = chatPeer.id
                     let subItems: [ContextMenuItem] = [
+                        .action(ContextMenuActionItem(text: "К первому сообщению", icon: { theme in
+                            generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/MoveUp"), color: theme.contextMenu.primaryColor)
+                        }, action: { [weak self] _, f in
+                            f(.dismissWithoutContent)
+                            guard let self, let navigationController = self.controller?.navigationController as? NavigationController else {
+                                return
+                            }
+                            // The history is searched from the earliest possible date, which lands on the first message.
+                            self.context.sharedContext.navigateToChatController(NavigateToChatControllerParams(navigationController: navigationController, context: self.context, chatLocation: .peer(chatPeer), subject: .message(id: .timestamp(1), highlight: nil, timecode: nil, setupReply: false), keepStack: .default))
+                        })),
                         .action(ContextMenuActionItem(text: "Посмотреть удалённые", icon: { theme in
                             generateTintedImage(image: UIImage(bundleImageName: "Chogram/Trash"), color: theme.contextMenu.primaryColor)
                         }, action: { [weak self] _, f in

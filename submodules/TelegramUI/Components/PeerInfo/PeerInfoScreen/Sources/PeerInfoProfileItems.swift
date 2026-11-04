@@ -4,6 +4,7 @@ import Display
 import AccountContext
 import TelegramPresentationData
 import TelegramCore
+import UndoUI
 import PeerInfoUI
 import TextFormat
 import PhoneNumberFormat
@@ -221,6 +222,28 @@ func infoItems(
                     }
                 )
             )
+        }
+        
+        if ChogramSettings.current.showProfileDetails {
+            let userIdText = "\(user.id.id._internalGetInt64Value())"
+            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: 3100, label: "ID", text: userIdText, textColor: .primary, action: { _, _ in
+                UIPasteboard.general.string = userIdText
+                if let controller = interaction.getController() {
+                    controller.present(UndoOverlayController(presentationData: presentationData, content: .copy(text: "ID скопирован"), elevatedLayout: false, animateInAsReplacement: false, action: { _ in return false }), in: .current)
+                }
+            }, requestLayout: { animated in
+                interaction.requestLayout(animated)
+            }))
+            if let created = chogramAccountCreationEstimate(userId: user.id.id._internalGetInt64Value()) {
+                items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: 3101, label: "аккаунт создан", text: created, textColor: .primary, action: nil, requestLayout: { animated in
+                    interaction.requestLayout(animated)
+                }))
+            }
+            if let datacenter = chogramDatacenter(user: user) {
+                items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: 3102, label: "дата-центр", text: datacenter, textColor: .primary, action: nil, requestLayout: { animated in
+                    interaction.requestLayout(animated)
+                }))
+            }
         }
         
         if let cachedData = data.cachedData as? CachedUserData {

@@ -140,6 +140,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     let chogramBadgeView: UIImageView
     let chogramExpandedBadgeView: UIImageView
     var chogramBadge: ChogramBadge?
+    var chogramUsesChogram: Bool = false
     var chogramPillView: ChogramDeveloperPillView?
     var displayChogramBadgeInfo: ((ChogramBadge) -> Void)?
     
@@ -411,8 +412,15 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         let phoneGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(self.handlePhoneLongPress(_:)))
         self.subtitleNodeRawContainer.view.addGestureRecognizer(phoneGestureRecognizer)
         
-        self.chogramBadgeView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.handleChogramBadgeTap)))
-        self.chogramExpandedBadgeView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.handleChogramBadgeTap)))
+        self.chogramBadgeView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.handleChogramBadgeIconTap)))
+        self.chogramExpandedBadgeView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.handleChogramBadgeIconTap)))
+    }
+    
+    // The icon by the name shows a short label, like a gift does; the label under the status opens the full window.
+    @objc private func handleChogramBadgeIconTap() {
+        if let chogramBadge = self.chogramBadge {
+            self.displayUniqueGiftInfo?(self.isAvatarExpanded ? self.chogramExpandedBadgeView : self.chogramBadgeView, chogramBadge.title)
+        }
     }
     
     @objc private func handleChogramBadgeTap() {
@@ -760,7 +768,9 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             panelWithAvatarHeight += 10.0
         }
         let chogramPillSpacing: CGFloat = 8.0
-        let showsChogramPill = self.chogramBadge != nil && !state.isEditing
+        // A badge holder gets the filled label with its title; any other Chogram user gets an outlined one.
+        let chogramPillTitle: String? = self.chogramBadge?.title ?? (self.chogramUsesChogram ? "Пользуется Чограмом" : nil)
+        let showsChogramPill = chogramPillTitle != nil && !state.isEditing
         if showsChogramPill {
             panelWithAvatarHeight += ChogramDeveloperPillView.height + chogramPillSpacing
         }
@@ -1841,7 +1851,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
         }
         
-        if showsChogramPill, let chogramBadge = self.chogramBadge {
+        if showsChogramPill, let chogramPillTitle {
             let pillView: ChogramDeveloperPillView
             if let current = self.chogramPillView {
                 pillView = current
@@ -1851,7 +1861,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 self.chogramPillView = pillView
                 self.regularContentNode.view.addSubview(pillView)
             }
-            let pillSize = pillView.update(title: chogramBadge.title, isDark: presentationData.theme.overallDarkAppearance)
+            let pillSize = pillView.update(title: chogramPillTitle, isDark: presentationData.theme.overallDarkAppearance, isOutlined: self.chogramBadge == nil)
             let pillX = hasStrip ? bandCenteredOrigin(width: pillSize.width, margin: 16.0) : floorToScreenPixels((width - pillSize.width) / 2.0)
             let pillFrame = CGRect(origin: CGPoint(x: pillX, y: subtitleFrame.maxY + chogramPillSpacing + titleOffset), size: pillSize)
             let pillAlpha: CGFloat = self.isAvatarExpanded ? 0.0 : max(0.0, 1.0 - titleCollapseFraction * 2.0)

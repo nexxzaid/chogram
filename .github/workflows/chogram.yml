@@ -98,7 +98,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # The notes show up in SideStore and in the app's "Что нового". They come from
+          # .github/release-notes.md when it lists this build's changes, otherwise from the
+          # commit titles since the previous release.
+          if [ -s .github/release-notes.md ]; then
+            cp .github/release-notes.md release-notes.txt
+          else
+            PREV=$(gh release list --limit 1 --exclude-drafts --json tagName -q '.[0].tagName')
+            if [ -n "$PREV" ]; then
+              gh api "repos/$GITHUB_REPOSITORY/compare/$PREV...$GITHUB_SHA" \
+                --jq '.commits[].commit.message | split("\n")[0]' | grep -v '\[skip ci\]' | sed 's/^/• /' > release-notes.txt || true
+            fi
+            [ -s release-notes.txt ] || echo "Исправления и улучшения." > release-notes.txt
+          fi
           gh release create "build-$BUILD_NUMBER" build/artifacts/Chogram.ipa \
             --target "$GITHUB_SHA" \
             --title "Chogram $APP_VERSION ($BUILD_NUMBER)" \
-            --notes "Unsigned build of Chogram $APP_VERSION ($BUILD_NUMBER) for installing through AltStore."
+            --notes-file release-notes.txt

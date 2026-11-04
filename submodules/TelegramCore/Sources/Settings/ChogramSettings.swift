@@ -21,6 +21,14 @@ public struct ChogramSettings: Equatable {
     private static let ghostHideReadKey = "chogram.ghostHideRead"
     private static let ghostHideStoryViewsKey = "chogram.ghostHideStoryViews"
     private static let ghostHideTypingKey = "chogram.ghostHideTyping"
+    private static let ghostReadOnSendKey = "chogram.ghostReadOnSend"
+    private static let showProfileDetailsKey = "chogram.showProfileDetails"
+    private static let shareChogramPresenceKey = "chogram.shareChogramPresence"
+    private static let photoWithoutCompressionKey = "chogram.photoWithoutCompression"
+    private static let videoWithoutCompressionKey = "chogram.videoWithoutCompression"
+    private static let mintThemeKey = "chogram.mintTheme"
+    private static let personalChatAsGroupKey = "chogram.personalChatAsGroup"
+    private static let usernameInHeaderKey = "chogram.usernameInHeader"
 
     public var keepDeletedMessages: Bool
     public var deletedMessageAppearance: DeletedMessageAppearance
@@ -35,6 +43,14 @@ public struct ChogramSettings: Equatable {
     public var ghostHideRead: Bool
     public var ghostHideStoryViews: Bool
     public var ghostHideTyping: Bool
+    public var ghostReadOnSend: Bool
+    public var showProfileDetails: Bool
+    public var shareChogramPresence: Bool
+    public var photoWithoutCompression: Bool
+    public var videoWithoutCompression: Bool
+    public var mintTheme: Bool
+    public var personalChatAsGroup: Bool
+    public var usernameInHeader: Bool
 
     public var hidesOnline: Bool {
         return self.ghostMode && self.ghostHideOnline
@@ -67,7 +83,15 @@ public struct ChogramSettings: Equatable {
             ghostHideOnline: defaults.object(forKey: ghostHideOnlineKey) as? Bool ?? true,
             ghostHideRead: defaults.object(forKey: ghostHideReadKey) as? Bool ?? true,
             ghostHideStoryViews: defaults.object(forKey: ghostHideStoryViewsKey) as? Bool ?? true,
-            ghostHideTyping: defaults.object(forKey: ghostHideTypingKey) as? Bool ?? true
+            ghostHideTyping: defaults.object(forKey: ghostHideTypingKey) as? Bool ?? true,
+            ghostReadOnSend: defaults.object(forKey: ghostReadOnSendKey) as? Bool ?? true,
+            showProfileDetails: defaults.object(forKey: showProfileDetailsKey) as? Bool ?? true,
+            shareChogramPresence: defaults.object(forKey: shareChogramPresenceKey) as? Bool ?? true,
+            photoWithoutCompression: defaults.object(forKey: photoWithoutCompressionKey) as? Bool ?? false,
+            videoWithoutCompression: defaults.object(forKey: videoWithoutCompressionKey) as? Bool ?? false,
+            mintTheme: defaults.object(forKey: mintThemeKey) as? Bool ?? false,
+            personalChatAsGroup: defaults.object(forKey: personalChatAsGroupKey) as? Bool ?? false,
+            usernameInHeader: defaults.object(forKey: usernameInHeaderKey) as? Bool ?? false
         )
     }
 
@@ -86,5 +110,13 @@ public struct ChogramSettings: Equatable {
         defaults.set(self.ghostHideRead, forKey: ChogramSettings.ghostHideReadKey)
         defaults.set(self.ghostHideStoryViews, forKey: ChogramSettings.ghostHideStoryViewsKey)
         defaults.set(self.ghostHideTyping, forKey: ChogramSettings.ghostHideTypingKey)
+        defaults.set(self.ghostReadOnSend, forKey: ChogramSettings.ghostReadOnSendKey)
+        defaults.set(self.showProfileDetails, forKey: ChogramSettings.showProfileDetailsKey)
+        defaults.set(self.shareChogramPresence, forKey: ChogramSettings.shareChogramPresenceKey)
+        defaults.set(self.photoWithoutCompression, forKey: ChogramSettings.photoWithoutCompressionKey)
+        defaults.set(self.videoWithoutCompression, forKey: ChogramSettings.videoWithoutCompressionKey)
+        defaults.set(self.mintTheme, forKey: ChogramSettings.mintThemeKey)
+        defaults.set(self.personalChatAsGroup, forKey: ChogramSettings.personalChatAsGroupKey)
+        defaults.set(self.usernameInHeader, forKey: ChogramSettings.usernameInHeaderKey)
     }
 }

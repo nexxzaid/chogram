@@ -158,6 +158,10 @@ public final class ChatMessageItemImpl: ChatMessageItem, CustomStringConvertible
                     }
                 }
                 displayAuthorInfo = incoming && peerId.isGroupOrChannel && effectiveAuthor != nil
+                // "Личные чаты как группа": the other side's messages get an avatar, as in a group.
+                if peerId.namespace == Namespaces.Peer.CloudUser && ChogramSettings.current.personalChatAsGroup {
+                    displayAuthorInfo = incoming && effectiveAuthor != nil
+                }
                 
                 if let _ = content.firstMessage.guestChatAttribute {
                     displayAuthorInfo = true

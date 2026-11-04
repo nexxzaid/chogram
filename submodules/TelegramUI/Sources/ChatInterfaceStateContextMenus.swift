@@ -1043,6 +1043,17 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                     f(.default)
                 })))
             }
+            if let stickerFile = messages[0].media.first(where: { ($0 as? TelegramMediaFile)?.isSticker == true }) as? TelegramMediaFile {
+                let stickerMessage = messages[0]
+                actions.append(.action(ContextMenuActionItem(text: "Сохранить как картинку", icon: { theme in
+                    return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Download"), color: theme.actionSheet.primaryTextColor)
+                }, action: { _, f in
+                    f(.default)
+                    chogramSaveStickerAsImage(context: context, message: stickerMessage, file: stickerFile, present: { controller in
+                        controllerInteraction.presentControllerInCurrent(controller, nil)
+                    })
+                })))
+            }
         }
         
         if data.messageActions.options.contains(.rateCall) {

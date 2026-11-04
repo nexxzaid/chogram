@@ -292,6 +292,7 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
     let sourceMessageId: MessageId?
     var canDeleteReaction = false
     var dataDisposable: Disposable?
+    var chogramPresenceDisposable: Disposable?
     
     let activeActionDisposable = MetaDisposable()
     let logoutConfirmationDisposable = MetaDisposable()
@@ -2259,12 +2260,41 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
                 controller.present(tooltipController, in: .current)
             }
             
+            self.chogramPresenceDisposable = (ChogramPresence.shared.usesChogram(peerId: self.peerId)
+            |> deliverOnMainQueue).startStrict(next: { [weak self] uses in
+                guard let self, self.headerNode.chogramUsesChogram != uses else {
+                    return
+                }
+                self.headerNode.chogramUsesChogram = uses
+                if let (layout, navigationHeight) = self.validLayout {
+                    self.containerLayoutUpdated(layout: layout, navigationHeight: navigationHeight, transition: .immediate, additive: false)
+                }
+            })
+            
             self.headerNode.displayChogramBadgeInfo = { [weak self] badge in
                 guard let self else {
                     return
                 }
                 let theme = self.presentationData.theme
-                let sheet = ChogramBadgeSheetController(badge: badge, isDark: theme.overallDarkAppearance, backgroundColor: theme.list.blocksBackgroundColor, textColor: theme.list.itemPrimaryTextColor, secondaryTextColor: theme.list.itemSecondaryTextColor)
+                var holderName = "Пользователь"
+                if let peer = self.data?.peer {
+                    holderName = peer.compactDisplayTitle
+                    if let username = peer.addressName {
+                        holderName += " · @\(username)"
+                    }
+                }
+                let colors = ChogramBadgeSheetColors(
+                    background: theme.list.itemBlocksBackgroundColor,
+                    cellBackground: theme.list.blocksBackgroundColor,
+                    separator: theme.list.itemBlocksSeparatorColor,
+                    text: theme.list.itemPrimaryTextColor,
+                    secondaryText: theme.list.itemSecondaryTextColor,
+                    accent: theme.list.itemAccentColor
+                )
+                let context = self.context
+                let sheet = ChogramBadgeSheetController(badge: badge, holderName: holderName, isDark: theme.overallDarkAppearance, colors: colors, openAbout: {
+                    context.sharedContext.applicationBindings.openUrl("https://github.com/nexxzaid/chogram")
+                })
                 self.context.sharedContext.applicationBindings.presentNativeController(sheet)
             }
             
@@ -2601,6 +2631,7 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
     
     deinit {
         self.dataDisposable?.dispose()
+        self.chogramPresenceDisposable?.dispose()
         self.hiddenMediaDisposable?.dispose()
         self.activeActionDisposable.dispose()
         self.logoutConfirmationDisposable.dispose()

@@ -24,7 +24,9 @@ private let chogramAppIcons: [(name: String?, imageName: String, title: String)]
     ("ChogramWhiteIcon", "Chogram/AppIconWhite", "Белая"),
     ("ChogramNightIcon", "Chogram/AppIconNight", "Ночь"),
     ("ChogramWaveIcon", "Chogram/AppIconWave", "Волна"),
-    ("ChogramOutlineIcon", "Chogram/AppIconOutline", "Контур")
+    ("ChogramOutlineIcon", "Chogram/AppIconOutline", "Контур"),
+    ("ChogramAutumnIcon", "Chogram/AppIconAutumn", "Осень"),
+    ("ChogramWinterIcon", "Chogram/AppIconWinter", "Новый год")
 ]
 
 private let chogramThemeCache = Atomic<(base: PresentationTheme, theme: PresentationTheme)?>(value: nil)
@@ -111,17 +113,23 @@ private final class ChogramSettingsControllerArguments {
     let openDeletedMessages: () -> Void
     let openLooks: () -> Void
     let openCleanText: () -> Void
+    let openScreen: (Int) -> Void
+    let openUpdate: () -> Void
+    let openHistory: () -> Void
     let openDeveloper: () -> Void
     let openRepository: () -> Void
     let updateSearch: (String) -> Void
     let openSearchResult: (Int) -> Void
 
-    init(store: ChogramSettingsStore, openGhostMode: @escaping () -> Void, openDeletedMessages: @escaping () -> Void, openLooks: @escaping () -> Void, openCleanText: @escaping () -> Void, openDeveloper: @escaping () -> Void, openRepository: @escaping () -> Void, updateSearch: @escaping (String) -> Void, openSearchResult: @escaping (Int) -> Void) {
+    init(store: ChogramSettingsStore, openGhostMode: @escaping () -> Void, openDeletedMessages: @escaping () -> Void, openLooks: @escaping () -> Void, openCleanText: @escaping () -> Void, openScreen: @escaping (Int) -> Void, openUpdate: @escaping () -> Void, openHistory: @escaping () -> Void, openDeveloper: @escaping () -> Void, openRepository: @escaping () -> Void, updateSearch: @escaping (String) -> Void, openSearchResult: @escaping (Int) -> Void) {
         self.store = store
         self.openGhostMode = openGhostMode
         self.openDeletedMessages = openDeletedMessages
         self.openLooks = openLooks
         self.openCleanText = openCleanText
+        self.openScreen = openScreen
+        self.openUpdate = openUpdate
+        self.openHistory = openHistory
         self.openDeveloper = openDeveloper
         self.openRepository = openRepository
         self.updateSearch = updateSearch
@@ -139,26 +147,42 @@ private let chogramSearchItems: [(title: String, icon: String, screen: Int)] = [
     ("Непрозрачность удалённых", "Trash", 1),
     ("Значок удалённых", "Trash", 1),
     ("Очистить сохранённые", "Trash", 1),
+    ("Читать чат при отправке", "Ghost", 0),
     ("Иконка приложения", "Palette", 2),
     ("Форма аватарок", "Palette", 2),
-    ("Чистый текст", "Text", 3)
+    ("Мятная тема", "Palette", 2),
+    ("Шрифт", "Palette", 7),
+    ("Чистый текст", "Text", 3),
+    ("ID, дата создания, дата-центр", "Profile", 4),
+    ("Показывать, что я в Чограме", "Profile", 4),
+    ("Личные чаты как группа", "Chats", 5),
+    ("Ник под именем в заголовке", "Chats", 5),
+    ("Фото в высоком качестве", "Media", 6),
+    ("Видео в максимальном качестве", "Media", 6),
+    ("Что нового", "Logo", 8)
 ]
 
 private enum ChogramSettingsSection: Int32 {
     case search
     case header
+    case update
     case categories
     case links
+    case whatsNew
 }
 
 private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
     case search(String)
     case searchResult(Int32)
     case header(String, String)
+    case update(String)
 
     case categoriesHeader
     case ghostMode(String)
     case deletedMessages(String)
+    case profiles
+    case chats
+    case media
     case looks
     case cleanText
     case hideAds(Bool)
@@ -167,16 +191,24 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
     case developer
     case repository
 
+    case whatsNewHeader(String)
+    case whatsNew(String)
+    case whatsNewHistory
+
     var section: ItemListSectionId {
         switch self {
         case .search, .searchResult:
             return ChogramSettingsSection.search.rawValue
         case .header:
             return ChogramSettingsSection.header.rawValue
-        case .categoriesHeader, .ghostMode, .deletedMessages, .looks, .cleanText, .hideAds:
+        case .update:
+            return ChogramSettingsSection.update.rawValue
+        case .categoriesHeader, .ghostMode, .deletedMessages, .profiles, .chats, .media, .looks, .cleanText, .hideAds:
             return ChogramSettingsSection.categories.rawValue
         case .linksHeader, .developer, .repository:
             return ChogramSettingsSection.links.rawValue
+        case .whatsNewHeader, .whatsNew, .whatsNewHistory:
+            return ChogramSettingsSection.whatsNew.rawValue
         }
     }
 
@@ -188,24 +220,38 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
             return -99 + index
         case .header:
             return 0
-        case .categoriesHeader:
+        case .update:
             return 1
-        case .ghostMode:
+        case .categoriesHeader:
             return 2
-        case .deletedMessages:
+        case .ghostMode:
             return 3
-        case .looks:
+        case .deletedMessages:
             return 4
-        case .cleanText:
+        case .profiles:
             return 5
-        case .hideAds:
+        case .chats:
             return 6
-        case .linksHeader:
+        case .media:
             return 7
-        case .developer:
+        case .looks:
             return 8
-        case .repository:
+        case .cleanText:
             return 9
+        case .hideAds:
+            return 10
+        case .linksHeader:
+            return 11
+        case .developer:
+            return 12
+        case .repository:
+            return 13
+        case .whatsNewHeader:
+            return 14
+        case .whatsNew:
+            return 15
+        case .whatsNewHistory:
+            return 16
         }
     }
 
@@ -228,6 +274,10 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
             })
         case let .header(version, logoImageName):
             return ChogramSettingsHeaderItem(presentationData: presentationData, title: "Чограм", subtitle: version, logoImageName: logoImageName, sectionId: self.section)
+        case let .update(title):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Logo", presentationData: presentationData), title: title, label: "Обновить", sectionId: self.section, style: .blocks, action: {
+                arguments.openUpdate()
+            })
         case .categoriesHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "КАТЕГОРИИ", sectionId: self.section)
         case let .ghostMode(summary):
@@ -237,6 +287,18 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
         case let .deletedMessages(summary):
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Trash", presentationData: presentationData), title: "Удалённые сообщения", label: summary, sectionId: self.section, style: .blocks, action: {
                 arguments.openDeletedMessages()
+            })
+        case .profiles:
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Profile", presentationData: presentationData), title: "Профили", label: "", sectionId: self.section, style: .blocks, action: {
+                arguments.openScreen(4)
+            })
+        case .chats:
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Chats", presentationData: presentationData), title: "Чаты", label: "", sectionId: self.section, style: .blocks, action: {
+                arguments.openScreen(5)
+            })
+        case .media:
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Media", presentationData: presentationData), title: "Медиа", label: "", sectionId: self.section, style: .blocks, action: {
+                arguments.openScreen(6)
             })
         case .looks:
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Palette", presentationData: presentationData), title: "Оформление", label: "", sectionId: self.section, style: .blocks, action: {
@@ -259,6 +321,14 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
         case .repository:
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Link", presentationData: presentationData), title: "Исходный код", label: "GitHub", sectionId: self.section, style: .blocks, action: {
                 arguments.openRepository()
+            })
+        case let .whatsNewHeader(title):
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: title, sectionId: self.section)
+        case let .whatsNew(text):
+            return ItemListMultilineTextItem(presentationData: presentationData, text: text, enabledEntityTypes: [], sectionId: self.section, style: .blocks)
+        case .whatsNewHistory:
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: "Прошлые сборки", label: "", sectionId: self.section, style: .blocks, action: {
+                arguments.openHistory()
             })
         }
     }
@@ -287,6 +357,8 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
     let appIconNamePromise = ValuePromise<String?>(context.sharedContext.applicationBindings.getAlternateIconName(), ignoreRepeated: true)
 
     let searchPromise = ValuePromise<String>("", ignoreRepeated: true)
+    let updatesPromise = Promise<ChogramUpdatesState?>(nil)
+    updatesPromise.set(chogramUpdatesState())
 
     var pushControllerImpl: ((ViewController) -> Void)?
 
@@ -297,7 +369,33 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
         case 1:
             pushControllerImpl?(chogramDeletedMessagesController(context: context, store: store))
         case 2:
-            pushControllerImpl?(chogramLooksController(context: context))
+            pushControllerImpl?(chogramLooksController(context: context, store: store))
+        case 4:
+            pushControllerImpl?(chogramToggleController(context: context, store: store, title: "Профили", rows: [
+                ChogramToggleRow(title: "ID, дата создания, дата-центр", keyPath: \.showProfileDetails, onChange: nil),
+                ChogramToggleRow(title: "Показывать, что я в Чограме", keyPath: \.shareChogramPresence, onChange: { _ in
+                    ChogramPresence.shared.syncOwnPresence(accountPeerId: context.account.peerId)
+                })
+            ], footer: "В профиле появятся ID, примерная дата создания аккаунта и дата-центр. Чтобы другие пользователи Чограма видели у тебя отметку «Пользуется Чограмом», Чограм сообщает серверу только ID аккаунта. Выключишь — ID удалится с сервера."))
+        case 5:
+            pushControllerImpl?(chogramToggleController(context: context, store: store, title: "Чаты", rows: [
+                ChogramToggleRow(title: "Личные чаты как группа", keyPath: \.personalChatAsGroup, onChange: nil),
+                ChogramToggleRow(title: "Ник под именем в заголовке", keyPath: \.usernameInHeader, onChange: nil)
+            ], footer: "«Как группа» — у сообщений собеседника появится аватарка, а у всех сообщений имя. Ник показывается рядом со статусом в заголовке чата. Изменения видны после повторного открытия чата."))
+        case 6:
+            pushControllerImpl?(chogramToggleController(context: context, store: store, title: "Медиа", rows: [
+                ChogramToggleRow(title: "Фото в высоком качестве", keyPath: \.photoWithoutCompression, onChange: { value in
+                    UserDefaults.standard.set(value, forKey: "TG_photoHighQuality_v0")
+                }),
+                ChogramToggleRow(title: "Видео в максимальном качестве", keyPath: \.videoWithoutCompression, onChange: { value in
+                    // 5 is the "very high" video preset, 0 lets Telegram pick.
+                    UserDefaults.standard.set(value ? 5 : 0, forKey: "TG_preferredVideoPreset_v0")
+                })
+            ], footer: "Фото уходят в HD, а видео в лучшем качестве, которое позволяет Telegram. Для одного файла качество можно сменить в редакторе перед отправкой."))
+        case 7:
+            pushControllerImpl?(chogramFontsController(context: context))
+        case 8:
+            pushControllerImpl?(chogramBuildHistoryController(context: context, updates: updatesPromise.get()))
         default:
             pushControllerImpl?(chogramCleanTextController(context: context, store: store))
         }
@@ -316,6 +414,21 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
         },
         openCleanText: {
             openScreen(3)
+        },
+        openScreen: { screen in
+            openScreen(screen)
+        },
+        openUpdate: {
+            let _ = (updatesPromise.get()
+            |> take(1)
+            |> deliverOnMainQueue).startStandalone(next: { state in
+                if let latest = state?.latest {
+                    context.sharedContext.applicationBindings.openUrl(chogramSideStoreInstallURL(for: latest))
+                }
+            })
+        },
+        openHistory: {
+            openScreen(8)
         },
         openDeveloper: {
             context.sharedContext.applicationBindings.openUrl("tg://resolve?domain=wabexe")
@@ -336,20 +449,27 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
         store.settings,
         deletedMessagesCountPromise.get(),
         appIconNamePromise.get(),
-        searchPromise.get()
+        searchPromise.get(),
+        updatesPromise.get()
     )
-    |> map { presentationData, settings, deletedMessagesCount, appIconName, search -> (ItemListControllerState, (ItemListNodeState, Any)) in
+    |> map { presentationData, settings, deletedMessagesCount, appIconName, search, updates -> (ItemListControllerState, (ItemListNodeState, Any)) in
         let presentationData = chogramPresentationData(presentationData)
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Чограм"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
         let logoImageName = chogramAppIcons.first(where: { $0.name == appIconName })?.imageName ?? "Chogram/AppIconClassic"
         var entries: [ChogramSettingsControllerEntry] = [.search(search)]
         let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
         if query.isEmpty {
+            entries.append(.header(chogramVersionString(), logoImageName))
+            if let updates, updates.hasUpdate, let latest = updates.latest {
+                entries.append(.update("Доступна сборка \(latest.build)"))
+            }
             entries.append(contentsOf: [
-                .header(chogramVersionString(), logoImageName),
                 .categoriesHeader,
                 .ghostMode(chogramGhostSummary(settings: settings)),
                 .deletedMessages(settings.keepDeletedMessages ? "\(deletedMessagesCount)" : "Выкл."),
+                .profiles,
+                .chats,
+                .media,
                 .looks,
                 .cleanText,
                 .hideAds(settings.hideAds),
@@ -357,6 +477,14 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
                 .developer,
                 .repository
             ])
+            // "Что нового" lists the changes of the build that is installed.
+            if let updates, let current = updates.current, !current.notes.isEmpty {
+                entries.append(.whatsNewHeader("ЧТО НОВОГО · СБОРКА \(current.build)"))
+                entries.append(.whatsNew(current.notes))
+                if updates.builds.count > 1 {
+                    entries.append(.whatsNewHistory)
+                }
+            }
         } else {
             for (index, item) in chogramSearchItems.enumerated() where item.title.lowercased().contains(query.lowercased()) {
                 entries.append(.searchResult(Int32(index)))
@@ -401,6 +529,7 @@ private enum ChogramGhostModeEntry: ItemListNodeEntry {
     case hideRead(Bool)
     case hideStoryViews(Bool)
     case hideTyping(Bool)
+    case readOnSend(Bool)
     case footer
 
     var section: ItemListSectionId {
@@ -426,8 +555,10 @@ private enum ChogramGhostModeEntry: ItemListNodeEntry {
             return 4
         case .hideTyping:
             return 5
-        case .footer:
+        case .readOnSend:
             return 6
+        case .footer:
+            return 7
         }
     }
 
@@ -460,8 +591,12 @@ private enum ChogramGhostModeEntry: ItemListNodeEntry {
             return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Не показывать набор", value: value, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.store.update { $0.ghostHideTyping = value }
             })
+        case let .readOnSend(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Читать чат при отправке", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.store.update { $0.ghostReadOnSend = value }
+            })
         case .footer:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Отправка сообщения всё равно покажет тебя в сети. Включать режим можно кнопкой в списке чатов."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Отправка сообщения всё равно покажет тебя в сети. «Читать чат при отправке» отмечает прочитанными сообщения только в том чате, куда ты пишешь. Включать режим можно кнопкой в списке чатов."), sectionId: self.section)
         }
     }
 }
@@ -474,6 +609,9 @@ private func chogramGhostModeEntries(settings: ChogramSettings) -> [ChogramGhost
         entries.append(.hideRead(settings.ghostHideRead))
         entries.append(.hideStoryViews(settings.ghostHideStoryViews))
         entries.append(.hideTyping(settings.ghostHideTyping))
+        if settings.ghostHideRead {
+            entries.append(.readOnSend(settings.ghostReadOnSend))
+        }
     }
     entries.append(.footer)
     return entries
@@ -702,19 +840,27 @@ private func chogramDeletedMessagesController(context: AccountContext, store: Ch
 private final class ChogramLooksControllerArguments {
     let selectAppIcon: (String?) -> Void
     let updateAvatarCorners: (Double) -> Void
+    let updateMintTheme: (Bool) -> Void
+    let openFonts: () -> Void
 
-    init(selectAppIcon: @escaping (String?) -> Void, updateAvatarCorners: @escaping (Double) -> Void) {
+    init(selectAppIcon: @escaping (String?) -> Void, updateAvatarCorners: @escaping (Double) -> Void, updateMintTheme: @escaping (Bool) -> Void, openFonts: @escaping () -> Void) {
         self.selectAppIcon = selectAppIcon
         self.updateAvatarCorners = updateAvatarCorners
+        self.updateMintTheme = updateMintTheme
+        self.openFonts = openFonts
     }
 }
 
 private enum ChogramLooksSection: Int32 {
+    case theme
     case appIcon
     case avatars
 }
 
 private enum ChogramLooksEntry: ItemListNodeEntry {
+    case mintTheme(Bool)
+    case font(String)
+    case themeFooter
     case appIconHeader
     case appIcon(String?)
     case avatarsHeader
@@ -723,6 +869,8 @@ private enum ChogramLooksEntry: ItemListNodeEntry {
 
     var section: ItemListSectionId {
         switch self {
+        case .mintTheme, .font, .themeFooter:
+            return ChogramLooksSection.theme.rawValue
         case .appIconHeader, .appIcon:
             return ChogramLooksSection.appIcon.rawValue
         case .avatarsHeader, .avatarCorners, .avatarsFooter:
@@ -732,6 +880,12 @@ private enum ChogramLooksEntry: ItemListNodeEntry {
 
     var stableId: Int32 {
         switch self {
+        case .mintTheme:
+            return -3
+        case .font:
+            return -2
+        case .themeFooter:
+            return -1
         case .appIconHeader:
             return 0
         case .appIcon:
@@ -752,6 +906,16 @@ private enum ChogramLooksEntry: ItemListNodeEntry {
     func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
         let arguments = arguments as! ChogramLooksControllerArguments
         switch self {
+        case let .mintTheme(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Palette", presentationData: presentationData), title: "Мятная тема Чограма", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.updateMintTheme(value)
+            })
+        case let .font(label):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Text", presentationData: presentationData), title: "Шрифт", label: label, sectionId: self.section, style: .blocks, action: {
+                arguments.openFonts()
+            })
+        case .themeFooter:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Мятный акцент, пузыри в тон и тёмно-зелёный фон чата. Выключишь — вернутся прежние цвета."), sectionId: self.section)
         case .appIconHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "ИКОНКА ПРИЛОЖЕНИЯ", sectionId: self.section)
         case let .appIcon(name):
@@ -770,9 +934,11 @@ private enum ChogramLooksEntry: ItemListNodeEntry {
     }
 }
 
-private func chogramLooksController(context: AccountContext) -> ViewController {
+private func chogramLooksController(context: AccountContext, store: ChogramSettingsStore) -> ViewController {
     let appIconNamePromise = ValuePromise<String?>(context.sharedContext.applicationBindings.getAlternateIconName(), ignoreRepeated: true)
     let avatarCornersPromise = ValuePromise<Double>(UserDefaults.standard.object(forKey: chogramAvatarCornersKey) as? Double ?? 1.0, ignoreRepeated: true)
+    let fontLabelPromise = ValuePromise<String>(chogramCurrentFontLabel(), ignoreRepeated: true)
+    var pushControllerImpl: ((ViewController) -> Void)?
 
     let arguments = ChogramLooksControllerArguments(
         selectAppIcon: { name in
@@ -783,18 +949,30 @@ private func chogramLooksController(context: AccountContext) -> ViewController {
         updateAvatarCorners: { value in
             UserDefaults.standard.set(value, forKey: chogramAvatarCornersKey)
             avatarCornersPromise.set(value)
+        },
+        updateMintTheme: { value in
+            store.update { $0.mintTheme = value }
+            chogramApplyMintTheme(context: context, enabled: value)
+        },
+        openFonts: {
+            pushControllerImpl?(chogramFontsController(context: context))
         }
     )
 
     let signal = combineLatest(queue: .mainQueue(),
         context.sharedContext.presentationData,
         appIconNamePromise.get(),
-        avatarCornersPromise.get()
+        avatarCornersPromise.get(),
+        store.settings,
+        fontLabelPromise.get()
     )
-    |> map { presentationData, appIconName, avatarCorners -> (ItemListControllerState, (ItemListNodeState, Any)) in
+    |> map { presentationData, appIconName, avatarCorners, settings, fontLabel -> (ItemListControllerState, (ItemListNodeState, Any)) in
         let presentationData = chogramPresentationData(presentationData)
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Оформление"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
         let entries: [ChogramLooksEntry] = [
+            .mintTheme(settings.mintTheme),
+            .font(fontLabel),
+            .themeFooter,
             .appIconHeader,
             .appIcon(appIconName),
             .avatarsHeader,
@@ -806,7 +984,14 @@ private func chogramLooksController(context: AccountContext) -> ViewController {
         return (controllerState, (listState, arguments))
     }
 
-    return ItemListController(context: context, state: signal)
+    let controller = ItemListController(context: context, state: signal)
+    controller.didAppear = { _ in
+        fontLabelPromise.set(chogramCurrentFontLabel())
+    }
+    pushControllerImpl = { [weak controller] c in
+        controller?.push(c)
+    }
+    return controller
 }
 
 // MARK: - Clean text
@@ -969,6 +1154,151 @@ public func chogramPeerDeletedMessagesController(context: AccountContext, peerId
         let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: entries, style: .blocks, animateChanges: true)
 
         return (controllerState, (listState, arguments))
+    }
+
+    return ItemListController(context: context, state: signal)
+}
+
+// MARK: - Simple toggle screens (Профили, Чаты, Медиа)
+
+private struct ChogramToggleRow {
+    let title: String
+    let keyPath: WritableKeyPath<ChogramSettings, Bool>
+    let onChange: ((Bool) -> Void)?
+}
+
+private final class ChogramToggleArguments {
+    let store: ChogramSettingsStore
+    let rows: [ChogramToggleRow]
+
+    init(store: ChogramSettingsStore, rows: [ChogramToggleRow]) {
+        self.store = store
+        self.rows = rows
+    }
+}
+
+private enum ChogramToggleEntry: ItemListNodeEntry {
+    case toggle(Int32, String, Bool)
+    case footer(String)
+
+    var section: ItemListSectionId {
+        return 0
+    }
+
+    var stableId: Int32 {
+        switch self {
+        case let .toggle(index, _, _):
+            return index
+        case .footer:
+            return 1000
+        }
+    }
+
+    static func <(lhs: ChogramToggleEntry, rhs: ChogramToggleEntry) -> Bool {
+        return lhs.stableId < rhs.stableId
+    }
+
+    func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
+        let arguments = arguments as! ChogramToggleArguments
+        switch self {
+        case let .toggle(index, title, value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, sectionId: self.section, style: .blocks, updated: { value in
+                let row = arguments.rows[Int(index)]
+                arguments.store.update { $0[keyPath: row.keyPath] = value }
+                row.onChange?(value)
+            })
+        case let .footer(text):
+            return ItemListTextItem(presentationData: presentationData, text: .plain(text), sectionId: self.section)
+        }
+    }
+}
+
+private func chogramToggleController(context: AccountContext, store: ChogramSettingsStore, title: String, rows: [ChogramToggleRow], footer: String) -> ViewController {
+    let arguments = ChogramToggleArguments(store: store, rows: rows)
+
+    let signal = combineLatest(queue: .mainQueue(),
+        context.sharedContext.presentationData,
+        store.settings
+    )
+    |> map { presentationData, settings -> (ItemListControllerState, (ItemListNodeState, Any)) in
+        let presentationData = chogramPresentationData(presentationData)
+        let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text(title), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
+        var entries: [ChogramToggleEntry] = []
+        for (index, row) in rows.enumerated() {
+            entries.append(.toggle(Int32(index), row.title, settings[keyPath: row.keyPath]))
+        }
+        entries.append(.footer(footer))
+        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: entries, style: .blocks, animateChanges: true)
+        return (controllerState, (listState, arguments))
+    }
+
+    return ItemListController(context: context, state: signal)
+}
+
+// MARK: - Past builds
+
+private enum ChogramBuildHistoryEntry: ItemListNodeEntry {
+    case header(Int32, String)
+    case notes(Int32, String)
+    case empty
+
+    var section: ItemListSectionId {
+        switch self {
+        case let .header(index, _), let .notes(index, _):
+            return index
+        case .empty:
+            return 0
+        }
+    }
+
+    var stableId: Int32 {
+        switch self {
+        case let .header(index, _):
+            return index * 2
+        case let .notes(index, _):
+            return index * 2 + 1
+        case .empty:
+            return 0
+        }
+    }
+
+    static func <(lhs: ChogramBuildHistoryEntry, rhs: ChogramBuildHistoryEntry) -> Bool {
+        return lhs.stableId < rhs.stableId
+    }
+
+    func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
+        switch self {
+        case let .header(_, text):
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: text, sectionId: self.section)
+        case let .notes(_, text):
+            return ItemListMultilineTextItem(presentationData: presentationData, text: text, enabledEntityTypes: [], sectionId: self.section, style: .blocks)
+        case .empty:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Не удалось загрузить список сборок. Проверь интернет."), sectionId: self.section)
+        }
+    }
+}
+
+private func chogramBuildHistoryController(context: AccountContext, updates: Signal<ChogramUpdatesState?, NoError>) -> ViewController {
+    let signal = combineLatest(queue: .mainQueue(),
+        context.sharedContext.presentationData,
+        updates
+    )
+    |> map { presentationData, updates -> (ItemListControllerState, (ItemListNodeState, Any)) in
+        let presentationData = chogramPresentationData(presentationData)
+        let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Что нового"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
+        var entries: [ChogramBuildHistoryEntry] = []
+        if let updates, !updates.builds.isEmpty {
+            for (index, build) in updates.builds.enumerated() {
+                let installed = build.build == updates.currentBuild ? " · УСТАНОВЛЕНА" : ""
+                let date = build.date.isEmpty ? "" : " · \(build.date.uppercased())"
+                entries.append(.header(Int32(index), "СБОРКА \(build.build)\(date)\(installed)"))
+                entries.append(.notes(Int32(index), build.notes.isEmpty ? "Исправления и улучшения." : build.notes))
+            }
+        } else {
+            entries.append(.empty)
+        }
+        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: entries, style: .blocks, animateChanges: false)
+        return (controllerState, (listState, ()))
     }
 
     return ItemListController(context: context, state: signal)

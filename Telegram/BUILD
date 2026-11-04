@@ -339,6 +339,8 @@ alternate_icon_folders = [
     "ChogramNightIcon",
     "ChogramWaveIcon",
     "ChogramOutlineIcon",
+    "ChogramAutumnIcon",
+    "ChogramWinterIcon",
 ]
 
 composer_icon_folders = ["Telegram"]

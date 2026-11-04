@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import CoreText
 
 public struct Font {
     public enum Design {
@@ -288,19 +289,58 @@ public struct Font {
         }
     }
     
+    // A font the user uploaded in the Chogram settings replaces the system font in the four basic
+    // weights. It is read once, at the first use, so a change applies after a restart.
+    public static let chogramCustomFontName: String? = {
+        let defaults = UserDefaults.standard
+        guard let fileName = defaults.string(forKey: "chogram.customFontFile"), !fileName.isEmpty, let name = defaults.string(forKey: "chogram.customFontPostScriptName"), !name.isEmpty else {
+            return nil
+        }
+        guard let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("ChogramFonts") else {
+            return nil
+        }
+        let url = directory.appendingPathComponent(fileName)
+        if UIFont(name: name, size: 12.0) == nil {
+            CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        }
+        return UIFont(name: name, size: 12.0) != nil ? name : nil
+    }()
+    
+    private static func chogramFont(_ size: CGFloat, bold: Bool) -> UIFont? {
+        guard let name = Font.chogramCustomFontName, let font = UIFont(name: name, size: size) else {
+            return nil
+        }
+        if bold, let descriptor = font.fontDescriptor.withSymbolicTraits(.traitBold) {
+            return UIFont(descriptor: descriptor, size: size)
+        }
+        return font
+    }
+    
     public static func regular(_ size: CGFloat) -> UIFont {
+        if let font = Font.chogramFont(size, bold: false) {
+            return font
+        }
         return UIFont.systemFont(ofSize: size)
     }
     
     public static func medium(_ size: CGFloat) -> UIFont {
+        if let font = Font.chogramFont(size, bold: false) {
+            return font
+        }
         return UIFont.systemFont(ofSize: size, weight: UIFont.Weight.medium)
     }
     
     public static func semibold(_ size: CGFloat) -> UIFont {
+        if let font = Font.chogramFont(size, bold: true) {
+            return font
+        }
         return UIFont.systemFont(ofSize: size, weight: UIFont.Weight.semibold)
     }
     
     public static func bold(_ size: CGFloat) -> UIFont {
+        if let font = Font.chogramFont(size, bold: true) {
+            return font
+        }
         if #available(iOS 8.2, *) {
             return UIFont.boldSystemFont(ofSize: size)
         } else {

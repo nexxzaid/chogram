@@ -365,8 +365,13 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                     )))
                     
                     self.updateChogramGhostButton()
+                    ChogramPresence.shared.syncOwnPresence(accountPeerId: self.context.account.peerId)
                     self.chogramSettingsObserver = NotificationCenter.default.addObserver(forName: NSNotification.Name("ChogramSettingsDidChange"), object: nil, queue: .main, using: { [weak self] _ in
-                        self?.updateChogramGhostButton()
+                        guard let self else {
+                            return
+                        }
+                        self.updateChogramGhostButton()
+                        ChogramPresence.shared.syncOwnPresence(accountPeerId: self.context.account.peerId)
                     })
                     
                     //let backBarButtonItem = UIBarButtonItem(title: self.presentationData.strings.DialogList_Title, style: .plain, target: nil, action: nil)

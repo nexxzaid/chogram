@@ -41,7 +41,9 @@ private func chogramCanRetainMessage(_ message: Message, accountPeerId: PeerId) 
     default:
         return false
     }
-    // One-time media stays gone. A chat's auto-delete timer is retained like any other deletion.
+    // Everything that arrived in the chat is kept, service messages included. View-once media is
+    // the one exception: its sender chose that it disappears, so it stays gone. A chat's
+    // auto-delete timer is retained like any other deletion.
     if message.containsSecretMedia {
         return false
     }
@@ -49,9 +51,6 @@ private func chogramCanRetainMessage(_ message: Message, accountPeerId: PeerId) 
         if attribute is AutoclearTimeoutMessageAttribute || attribute is EphemeralReplacementMessageAttribute {
             return false
         }
-    }
-    if message.media.contains(where: { $0 is TelegramMediaAction }) {
-        return false
     }
     return true
 }
