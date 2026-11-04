@@ -2,7 +2,7 @@ name: Chogram
 
 on:
   push:
-    branches: [ chogram ]
+    branches: [ chogram, chogram-13.1 ]
 
   workflow_dispatch:
 
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 355
 
     steps:
@@ -21,9 +21,23 @@ jobs:
 
       - name: Set active Xcode path
         run: |
+          ls -d /Applications/Xcode* || true
           XCODE_VERSION=$(python3 -c 'import json;print(json.load(open("versions.json"))["xcode"])')
+          # The runner image may ship a newer point release than versions.json names; use the
+          # newest Xcode of the same major version then, and let Make.py accept it.
+          if [ ! -d "/Applications/Xcode_$XCODE_VERSION.app" ]; then
+            MAJOR=${XCODE_VERSION%%.*}
+            FOUND=$(ls -d /Applications/Xcode_${MAJOR}*.app 2>/dev/null | sort -V | tail -1)
+            if [ -z "$FOUND" ]; then
+              echo "::error::No Xcode $MAJOR on this runner"
+              exit 1
+            fi
+            XCODE_VERSION=$(basename "$FOUND" .app | sed 's/^Xcode_//')
+            echo "OVERRIDE_XCODE=--overrideXcodeVersion" >> $GITHUB_ENV
+          fi
           echo "XCODE_VERSION=$XCODE_VERSION" >> $GITHUB_ENV
           sudo xcode-select -s /Applications/Xcode_$XCODE_VERSION.app/Contents/Developer
+          xcodebuild -version
 
       - name: Free disk space
         run: |
@@ -73,7 +87,7 @@ jobs:
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
 
           python3 build-system/Make/ImportCertificates.py --path build-system/chogram-codesigning/certs
-          python3 -u build-system/Make/Make.py \
+          python3 -u build-system/Make/Make.py $OVERRIDE_XCODE \
             --cacheDir="$HOME/telegram-bazel-cache" \
             build \
             --configurationPath=build-input/chogram-configuration.json \
@@ -111,7 +125,13 @@ jobs:
             fi
             [ -s release-notes.txt ] || echo "Исправления и улучшения." > release-notes.txt
           fi
-          gh release create "build-$BUILD_NUMBER" build/artifacts/Chogram.ipa \
+          # Builds from any branch but chogram are test builds: marked as pre-releases, which the
+          # SideStore source and the in-app update banner skip.
+          PRERELEASE=""
+          if [ "$GITHUB_REF_NAME" != "chogram" ]; then
+            PRERELEASE="--prerelease"
+          fi
+          gh release create "build-$BUILD_NUMBER" build/artifacts/Chogram.ipa $PRERELEASE \
             --target "$GITHUB_SHA" \
             --title "Chogram $APP_VERSION ($BUILD_NUMBER)" \
             --notes-file release-notes.txt

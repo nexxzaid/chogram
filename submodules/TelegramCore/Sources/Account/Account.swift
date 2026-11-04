@@ -2,7 +2,7 @@ import Foundation
 import Postbox
 import SwiftSignalKit
 import MtProtoKit
-import TelegramApi
+internal import TelegramApi
 import CryptoUtils
 import EncryptionProvider
 
@@ -616,12 +616,19 @@ func _internal_requestCreatePasskey(network: Network, id: String, clientData: St
     }
 }
 
-func _internal_deletePasskey(network: Network, id: String) -> Signal<Never, NoError> {
+func _internal_deletePasskey(network: Network, id: String) -> Signal<Bool, NoError> {
     return network.request(Api.functions.account.deletePasskey(id: id))
     |> `catch` { _ -> Signal<Api.Bool, NoError> in
         return .single(.boolFalse)
     }
-    |> ignoreValues
+    |> map { result in
+        switch result {
+        case .boolTrue:
+            return true
+        case .boolFalse:
+            return false
+        }
+    }
 }
 
 func _internal_requestPasskeyLoginData(network: Network, apiId: Int32, apiHash: String) -> Signal<String?, NoError> {
@@ -1346,7 +1353,7 @@ public class Account {
         
         self.stateManager = AccountStateManager(accountPeerId: self.peerId, accountManager: accountManager, postbox: self.postbox, network: self.network, callSessionManager: self.callSessionManager, addIsContactUpdates: { [weak self] updates in
             self?.contactSyncManager?.addIsContactUpdates(updates)
-        }, shouldKeepOnlinePresence: self.shouldKeepOnlinePresence.get(), peerInputActivityManager: self.peerInputActivityManager, auxiliaryMethods: auxiliaryMethods)
+        }, shouldKeepOnlinePresence: self.shouldKeepOnlinePresence.get(), peerInputActivityManager: self.peerInputActivityManager, auxiliaryMethods: auxiliaryMethods, ignoresShortSentMessages: supplementary)
         
         self.viewTracker = AccountViewTracker(account: self)
         self.viewTracker.resetPeerHoleManagement = { [weak self] peerId in
@@ -1921,7 +1928,8 @@ public func standaloneStateManager(
                                         },
                                         shouldKeepOnlinePresence: .single(false),
                                         peerInputActivityManager: nil,
-                                        auxiliaryMethods: auxiliaryMethods
+                                        auxiliaryMethods: auxiliaryMethods,
+                                        ignoresShortSentMessages: true
                                     )
                                 }
                             }
