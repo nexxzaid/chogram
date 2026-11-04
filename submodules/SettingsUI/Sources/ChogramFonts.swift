@@ -52,7 +52,7 @@ private func chogramSelectFont(_ font: ChogramFontEntry?) {
     UserDefaults.standard.set(font?.postScriptName ?? "", forKey: chogramFontNameKey)
 }
 
-private enum ChogramFontImportError {
+private enum ChogramFontImportError: Error {
     case unreadable
     case unsupported
 }
