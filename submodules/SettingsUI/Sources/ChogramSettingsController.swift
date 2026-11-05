@@ -158,7 +158,7 @@ private let chogramSearchItems: [(title: String, icon: String, screen: Int)] = [
     ("Ник в заголовке", "Chats", 5),
     ("Фото в высоком качестве", "Media", 6),
     ("Видео в лучшем качестве", "Media", 6),
-    ("Что нового", "Logo", 8)
+    ("Что нового", "Update", 8)
 ]
 
 private enum ChogramSettingsSection: Int32 {
@@ -274,7 +274,7 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
         case let .header(version, logoImageName):
             return ChogramSettingsHeaderItem(presentationData: presentationData, title: "Чограм", subtitle: version, logoImageName: logoImageName, sectionId: self.section)
         case let .update(title):
-            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Logo", presentationData: presentationData), title: title, label: "Обновить", sectionId: self.section, style: .blocks, action: {
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Update", presentationData: presentationData), title: title, label: "Обновить", sectionId: self.section, style: .blocks, action: {
                 arguments.openUpdate()
             })
         case .categoriesHeader:
