@@ -150,15 +150,14 @@ private let chogramSearchItems: [(title: String, icon: String, screen: Int)] = [
     ("Читать чат при отправке", "Ghost", 0),
     ("Иконка приложения", "Palette", 2),
     ("Форма аватарок", "Palette", 2),
-    ("Мятная тема", "Palette", 2),
     ("Шрифт", "Palette", 7),
     ("Чистый текст", "Text", 3),
-    ("ID, дата создания, дата-центр", "Profile", 4),
-    ("Показывать, что я в Чограме", "Profile", 4),
-    ("Личные чаты как группа", "Chats", 5),
-    ("Ник под именем в заголовке", "Chats", 5),
+    ("ID и дата-центр", "Profile", 4),
+    ("Видно, что я в Чограме", "Profile", 4),
+    ("Чаты как группа", "Chats", 5),
+    ("Ник в заголовке", "Chats", 5),
     ("Фото в высоком качестве", "Media", 6),
-    ("Видео в максимальном качестве", "Media", 6),
+    ("Видео в лучшем качестве", "Media", 6),
     ("Что нового", "Logo", 8)
 ]
 
@@ -351,6 +350,11 @@ private func chogramVersionString() -> String {
 
 public func chogramSettingsController(context: AccountContext) -> ViewController {
     let store = ChogramSettingsStore()
+    // The mint theme was removed; anyone who had it on gets their own colors back.
+    if ChogramSettings.current.mintTheme {
+        store.update { $0.mintTheme = false }
+        chogramApplyMintTheme(context: context, enabled: false)
+    }
 
     let deletedMessagesCountPromise = Promise<Int>()
     deletedMessagesCountPromise.set(context.engine.messages.chogramDeletedMessagesCount())
@@ -372,22 +376,22 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
             pushControllerImpl?(chogramLooksController(context: context, store: store))
         case 4:
             pushControllerImpl?(chogramToggleController(context: context, store: store, title: "Профили", rows: [
-                ChogramToggleRow(title: "ID, дата создания, дата-центр", keyPath: \.showProfileDetails, onChange: nil),
-                ChogramToggleRow(title: "Показывать, что я в Чограме", keyPath: \.shareChogramPresence, onChange: { _ in
+                ChogramToggleRow(title: "ID и дата-центр", keyPath: \.showProfileDetails, onChange: nil),
+                ChogramToggleRow(title: "Видно, что я в Чограме", keyPath: \.shareChogramPresence, onChange: { _ in
                     ChogramPresence.shared.syncOwnPresence(accountPeerId: context.account.peerId)
                 })
             ], footer: "В профиле появятся ID, примерная дата создания аккаунта и дата-центр. Чтобы другие пользователи Чограма видели у тебя отметку «Пользуется Чограмом», Чограм сообщает серверу только ID аккаунта. Выключишь — ID удалится с сервера."))
         case 5:
             pushControllerImpl?(chogramToggleController(context: context, store: store, title: "Чаты", rows: [
-                ChogramToggleRow(title: "Личные чаты как группа", keyPath: \.personalChatAsGroup, onChange: nil),
-                ChogramToggleRow(title: "Ник под именем в заголовке", keyPath: \.usernameInHeader, onChange: nil)
+                ChogramToggleRow(title: "Чаты как группа", keyPath: \.personalChatAsGroup, onChange: nil),
+                ChogramToggleRow(title: "Ник в заголовке", keyPath: \.usernameInHeader, onChange: nil)
             ], footer: "«Как группа» — у сообщений собеседника появится аватарка, а у всех сообщений имя. Ник показывается рядом со статусом в заголовке чата. Изменения видны после повторного открытия чата."))
         case 6:
             pushControllerImpl?(chogramToggleController(context: context, store: store, title: "Медиа", rows: [
                 ChogramToggleRow(title: "Фото в высоком качестве", keyPath: \.photoWithoutCompression, onChange: { value in
                     UserDefaults.standard.set(value, forKey: "TG_photoHighQuality_v0")
                 }),
-                ChogramToggleRow(title: "Видео в максимальном качестве", keyPath: \.videoWithoutCompression, onChange: { value in
+                ChogramToggleRow(title: "Видео в лучшем качестве", keyPath: \.videoWithoutCompression, onChange: { value in
                     // 5 is the "very high" video preset, 0 lets Telegram pick.
                     UserDefaults.standard.set(value ? 5 : 0, forKey: "TG_preferredVideoPreset_v0")
                 })
@@ -840,13 +844,11 @@ private func chogramDeletedMessagesController(context: AccountContext, store: Ch
 private final class ChogramLooksControllerArguments {
     let selectAppIcon: (String?) -> Void
     let updateAvatarCorners: (Double) -> Void
-    let updateMintTheme: (Bool) -> Void
     let openFonts: () -> Void
 
-    init(selectAppIcon: @escaping (String?) -> Void, updateAvatarCorners: @escaping (Double) -> Void, updateMintTheme: @escaping (Bool) -> Void, openFonts: @escaping () -> Void) {
+    init(selectAppIcon: @escaping (String?) -> Void, updateAvatarCorners: @escaping (Double) -> Void, openFonts: @escaping () -> Void) {
         self.selectAppIcon = selectAppIcon
         self.updateAvatarCorners = updateAvatarCorners
-        self.updateMintTheme = updateMintTheme
         self.openFonts = openFonts
     }
 }
@@ -858,9 +860,7 @@ private enum ChogramLooksSection: Int32 {
 }
 
 private enum ChogramLooksEntry: ItemListNodeEntry {
-    case mintTheme(Bool)
     case font(String)
-    case themeFooter
     case appIconHeader
     case appIcon(String?)
     case avatarsHeader
@@ -869,7 +869,7 @@ private enum ChogramLooksEntry: ItemListNodeEntry {
 
     var section: ItemListSectionId {
         switch self {
-        case .mintTheme, .font, .themeFooter:
+        case .font:
             return ChogramLooksSection.theme.rawValue
         case .appIconHeader, .appIcon:
             return ChogramLooksSection.appIcon.rawValue
@@ -880,11 +880,7 @@ private enum ChogramLooksEntry: ItemListNodeEntry {
 
     var stableId: Int32 {
         switch self {
-        case .mintTheme:
-            return -3
         case .font:
-            return -2
-        case .themeFooter:
             return -1
         case .appIconHeader:
             return 0
@@ -906,16 +902,10 @@ private enum ChogramLooksEntry: ItemListNodeEntry {
     func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
         let arguments = arguments as! ChogramLooksControllerArguments
         switch self {
-        case let .mintTheme(value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Palette", presentationData: presentationData), title: "Мятная тема Чограма", value: value, sectionId: self.section, style: .blocks, updated: { value in
-                arguments.updateMintTheme(value)
-            })
         case let .font(label):
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Text", presentationData: presentationData), title: "Шрифт", label: label, sectionId: self.section, style: .blocks, action: {
                 arguments.openFonts()
             })
-        case .themeFooter:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Мятный акцент, пузыри в тон и тёмно-зелёный фон чата. Выключишь — вернутся прежние цвета."), sectionId: self.section)
         case .appIconHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "ИКОНКА ПРИЛОЖЕНИЯ", sectionId: self.section)
         case let .appIcon(name):
@@ -950,10 +940,6 @@ private func chogramLooksController(context: AccountContext, store: ChogramSetti
             UserDefaults.standard.set(value, forKey: chogramAvatarCornersKey)
             avatarCornersPromise.set(value)
         },
-        updateMintTheme: { value in
-            store.update { $0.mintTheme = value }
-            chogramApplyMintTheme(context: context, enabled: value)
-        },
         openFonts: {
             pushControllerImpl?(chogramFontsController(context: context))
         }
@@ -963,16 +949,13 @@ private func chogramLooksController(context: AccountContext, store: ChogramSetti
         context.sharedContext.presentationData,
         appIconNamePromise.get(),
         avatarCornersPromise.get(),
-        store.settings,
         fontLabelPromise.get()
     )
-    |> map { presentationData, appIconName, avatarCorners, settings, fontLabel -> (ItemListControllerState, (ItemListNodeState, Any)) in
+    |> map { presentationData, appIconName, avatarCorners, fontLabel -> (ItemListControllerState, (ItemListNodeState, Any)) in
         let presentationData = chogramPresentationData(presentationData)
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Оформление"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
         let entries: [ChogramLooksEntry] = [
-            .mintTheme(settings.mintTheme),
             .font(fontLabel),
-            .themeFooter,
             .appIconHeader,
             .appIcon(appIconName),
             .avatarsHeader,

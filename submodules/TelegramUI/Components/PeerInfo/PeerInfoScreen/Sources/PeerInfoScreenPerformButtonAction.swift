@@ -476,8 +476,16 @@ extension PeerInfoScreenNode {
                             guard let self, let navigationController = self.controller?.navigationController as? NavigationController else {
                                 return
                             }
-                            // The history is searched from the earliest possible date, which lands on the first message.
-                            self.context.sharedContext.navigateToChatController(NavigateToChatControllerParams(navigationController: navigationController, context: self.context, chatLocation: .peer(chatPeer), subject: .message(id: .timestamp(1), highlight: nil, timecode: nil, setupReply: false), keepStack: .default))
+                            // An open chat only jumps to a message id, not to a date, so the first message's id is
+                            // looked up first: the history searched from the earliest possible date starts with it.
+                            let context = self.context
+                            let _ = (context.engine.messages.searchMessageIdByTimestamp(peerId: chatPeer.id, threadId: nil, timestamp: 1)
+                            |> deliverOnMainQueue).startStandalone(next: { [weak navigationController] messageId in
+                                guard let navigationController, let messageId else {
+                                    return
+                                }
+                                context.sharedContext.navigateToChatController(NavigateToChatControllerParams(navigationController: navigationController, context: context, chatLocation: .peer(chatPeer), subject: .message(id: .id(messageId), highlight: ChatControllerSubject.MessageHighlight(quote: nil), timecode: nil, setupReply: false), keepStack: .default))
+                            })
                         })),
                         .action(ContextMenuActionItem(text: "Посмотреть удалённые", icon: { theme in
                             generateTintedImage(image: UIImage(bundleImageName: "Chogram/Trash"), color: theme.contextMenu.primaryColor)
