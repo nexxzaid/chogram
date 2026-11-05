@@ -158,7 +158,8 @@ private let chogramSearchItems: [(title: String, icon: String, screen: Int)] = [
     ("Ник в заголовке", "Chats", 5),
     ("Фото в высоком качестве", "Media", 6),
     ("Видео в лучшем качестве", "Media", 6),
-    ("Что нового", "Update", 8)
+    ("Что нового", "Update", 8),
+    ("Уведомления", "Bell", 9)
 ]
 
 private enum ChogramSettingsSection: Int32 {
@@ -179,6 +180,7 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
     case categoriesHeader
     case ghostMode(String)
     case deletedMessages(String)
+    case notifications(String)
     case profiles
     case chats
     case media
@@ -202,7 +204,7 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
             return ChogramSettingsSection.header.rawValue
         case .update:
             return ChogramSettingsSection.update.rawValue
-        case .categoriesHeader, .ghostMode, .deletedMessages, .profiles, .chats, .media, .looks, .cleanText, .hideAds:
+        case .categoriesHeader, .ghostMode, .deletedMessages, .notifications, .profiles, .chats, .media, .looks, .cleanText, .hideAds:
             return ChogramSettingsSection.categories.rawValue
         case .linksHeader, .developer, .repository:
             return ChogramSettingsSection.links.rawValue
@@ -227,30 +229,32 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
             return 3
         case .deletedMessages:
             return 4
-        case .profiles:
+        case .notifications:
             return 5
-        case .chats:
+        case .profiles:
             return 6
-        case .media:
+        case .chats:
             return 7
-        case .looks:
+        case .media:
             return 8
-        case .cleanText:
+        case .looks:
             return 9
-        case .hideAds:
+        case .cleanText:
             return 10
-        case .linksHeader:
+        case .hideAds:
             return 11
-        case .developer:
+        case .linksHeader:
             return 12
-        case .repository:
+        case .developer:
             return 13
-        case .whatsNewHeader:
+        case .repository:
             return 14
-        case .whatsNew:
+        case .whatsNewHeader:
             return 15
-        case .whatsNewHistory:
+        case .whatsNew:
             return 16
+        case .whatsNewHistory:
+            return 17
         }
     }
 
@@ -286,6 +290,10 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
         case let .deletedMessages(summary):
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Trash", presentationData: presentationData), title: "Удалённые сообщения", label: summary, sectionId: self.section, style: .blocks, action: {
                 arguments.openDeletedMessages()
+            })
+        case let .notifications(summary):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Bell", presentationData: presentationData), title: "Уведомления", label: summary, sectionId: self.section, style: .blocks, action: {
+                arguments.openScreen(9)
             })
         case .profiles:
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Profile", presentationData: presentationData), title: "Профили", label: "", sectionId: self.section, style: .blocks, action: {
@@ -400,6 +408,8 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
             pushControllerImpl?(chogramFontsController(context: context))
         case 8:
             pushControllerImpl?(chogramBuildHistoryController(context: context, updates: updatesPromise.get()))
+        case 9:
+            pushControllerImpl?(chogramNotificationsController(context: context))
         default:
             pushControllerImpl?(chogramCleanTextController(context: context, store: store))
         }
@@ -471,6 +481,7 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
                 .categoriesHeader,
                 .ghostMode(chogramGhostSummary(settings: settings)),
                 .deletedMessages(settings.keepDeletedMessages ? "\(deletedMessagesCount)" : "Выкл."),
+                .notifications(UserDefaults.standard.string(forKey: "chogram.pushToken") != nil ? "Вкл." : "Выкл."),
                 .profiles,
                 .chats,
                 .media,

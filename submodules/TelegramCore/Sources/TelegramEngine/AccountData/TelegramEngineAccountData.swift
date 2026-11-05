@@ -63,6 +63,14 @@ public extension TelegramEngine {
             return _internal_registerNotificationToken(account: self.account, token: token, type: type, sandbox: sandbox, otherAccountUserIds: otherAccountUserIds, excludeMutedChats: excludeMutedChats)
         }
 
+        public func chogramRegisterFirebasePush(token: String, secret: Data, otherAccountUserIds: [PeerId.Id]) -> Signal<Bool, NoError> {
+            return _internal_chogramRegisterFirebasePush(account: self.account, token: token, secret: secret, otherAccountUserIds: otherAccountUserIds)
+        }
+
+        public func chogramUnregisterFirebasePush(token: String, otherAccountUserIds: [PeerId.Id]) -> Signal<Never, NoError> {
+            return _internal_chogramUnregisterFirebasePush(account: self.account, token: token, otherAccountUserIds: otherAccountUserIds)
+        }
+
         public func updateAccountPhoto(resource: EngineMediaResource?, videoResource: EngineMediaResource?, videoStartTimestamp: Double?, markup: UploadPeerPhotoMarkup?, mapResourceToAvatarSizes: @escaping (EngineMediaResource, [TelegramMediaImageRepresentation]) -> Signal<[Int: Data], NoError>) -> Signal<UpdatePeerPhotoStatus, UploadPeerPhotoError> {
             return _internal_updateAccountPhoto(account: self.account, resource: resource?._asResource(), videoResource: videoResource?._asResource(), videoStartTimestamp: videoStartTimestamp, markup: markup, fallback: false, mapResourceToAvatarSizes: { rawResource, representations in
                 return mapResourceToAvatarSizes(EngineMediaResource(rawResource), representations)

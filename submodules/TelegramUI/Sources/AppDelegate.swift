@@ -2648,7 +2648,8 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
             if let authContext = authContext, let confirmationCode = parseConfirmationCodeUrl(sharedContext: sharedContext, url: url) {
                 authContext.rootController.applyConfirmationCode(confirmationCode)
             } else if let context = context {
-                if (WalletContext.isTonConnectUrl(url.absoluteString) || url.scheme?.lowercased() == "ton"), !WalletConfiguration.with(appConfiguration: context.context.currentAppConfiguration.with { $0 }).isAvailable {
+                if chogramHandleUrl(url, context: context.context, navigationController: context.rootController) {
+                } else if (WalletContext.isTonConnectUrl(url.absoluteString) || url.scheme?.lowercased() == "ton"), !WalletConfiguration.with(appConfiguration: context.context.currentAppConfiguration.with { $0 }).isAvailable {
                     self.presentWalletUnavailable(in: context)
                 } else if WalletContext.isTonConnectUrl(url.absoluteString) {
                     context.context.walletContext?.processTonConnectUrl(url.absoluteString)
@@ -3021,7 +3022,8 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
         }
         self.openUrlWhenReadyDisposable.set((signal
         |> deliverOnMainQueue).start(next: { [weak self] context in
-            if (WalletContext.isTonConnectUrl(url.absoluteString) || url.scheme?.lowercased() == "ton"), !WalletConfiguration.with(appConfiguration: context.context.currentAppConfiguration.with { $0 }).isAvailable {
+            if chogramHandleUrl(url, context: context.context, navigationController: context.rootController) {
+            } else if (WalletContext.isTonConnectUrl(url.absoluteString) || url.scheme?.lowercased() == "ton"), !WalletConfiguration.with(appConfiguration: context.context.currentAppConfiguration.with { $0 }).isAvailable {
                 self?.presentWalletUnavailable(in: context)
             } else if WalletContext.isTonConnectUrl(url.absoluteString) {
                 context.context.walletContext?.processTonConnectUrl(url.absoluteString)
