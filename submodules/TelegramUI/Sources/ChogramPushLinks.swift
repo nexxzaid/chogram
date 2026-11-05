@@ -64,6 +64,7 @@ private func chogramConnectPush(context: AccountContext, token: String, secret: 
     |> deliverOnMainQueue).startStandalone(next: { results in
         if !results.isEmpty && results.allSatisfy({ $0 }) {
             UserDefaults.standard.set(token, forKey: chogramPushTokenKey)
+            NotificationCenter.default.post(name: NSNotification.Name("ChogramPushStateDidChange"), object: nil)
             chogramToast(context: context, text: "Уведомления подключены")
         } else {
             chogramToast(context: context, text: "Telegram не принял подключение уведомлений. Попробуй ещё раз позже.")

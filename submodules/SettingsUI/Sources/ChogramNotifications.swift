@@ -133,7 +133,14 @@ public func chogramNotificationsController(context: AccountContext) -> ViewContr
         return (controllerState, (listState, arguments))
     }
 
-    let controller = ItemListController(context: context, state: signal)
+    // The status changes while the page that connects notifications covers this screen, so it is
+    // refreshed when Chogram reports the change, not only when the screen reappears.
+    let observer = NotificationCenter.default.addObserver(forName: NSNotification.Name("ChogramPushStateDidChange"), object: nil, queue: .main, using: { _ in
+        statePromise.set(UserDefaults.standard.string(forKey: chogramPushTokenKey) != nil)
+    })
+    let controller = ItemListController(context: context, state: signal |> afterDisposed {
+        NotificationCenter.default.removeObserver(observer)
+    })
     controller.didAppear = { _ in
         statePromise.set(UserDefaults.standard.string(forKey: chogramPushTokenKey) != nil)
     }

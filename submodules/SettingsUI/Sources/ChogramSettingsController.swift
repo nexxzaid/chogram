@@ -369,6 +369,7 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
     let appIconNamePromise = ValuePromise<String?>(context.sharedContext.applicationBindings.getAlternateIconName(), ignoreRepeated: true)
 
     let searchPromise = ValuePromise<String>("", ignoreRepeated: true)
+    let pushConnectedPromise = ValuePromise<Bool>(UserDefaults.standard.string(forKey: "chogram.pushToken") != nil, ignoreRepeated: true)
     let updatesPromise = Promise<ChogramUpdatesState?>(nil)
     updatesPromise.set(chogramUpdatesState())
 
@@ -464,9 +465,10 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
         deletedMessagesCountPromise.get(),
         appIconNamePromise.get(),
         searchPromise.get(),
-        updatesPromise.get()
+        updatesPromise.get(),
+        pushConnectedPromise.get()
     )
-    |> map { presentationData, settings, deletedMessagesCount, appIconName, search, updates -> (ItemListControllerState, (ItemListNodeState, Any)) in
+    |> map { presentationData, settings, deletedMessagesCount, appIconName, search, updates, pushConnected -> (ItemListControllerState, (ItemListNodeState, Any)) in
         let presentationData = chogramPresentationData(presentationData)
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Чограм"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
         let logoImageName = chogramAppIcons.first(where: { $0.name == appIconName })?.imageName ?? "Chogram/AppIconClassic"
@@ -481,7 +483,7 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
                 .categoriesHeader,
                 .ghostMode(chogramGhostSummary(settings: settings)),
                 .deletedMessages(settings.keepDeletedMessages ? "\(deletedMessagesCount)" : "Выкл."),
-                .notifications(UserDefaults.standard.string(forKey: "chogram.pushToken") != nil ? "Вкл." : "Выкл."),
+                .notifications(pushConnected ? "Вкл." : "Выкл."),
                 .profiles,
                 .chats,
                 .media,
@@ -515,6 +517,7 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
         store.reload()
         deletedMessagesCountPromise.set(context.engine.messages.chogramDeletedMessagesCount())
         appIconNamePromise.set(context.sharedContext.applicationBindings.getAlternateIconName())
+        pushConnectedPromise.set(UserDefaults.standard.string(forKey: "chogram.pushToken") != nil)
     }
     pushControllerImpl = { [weak controller] c in
         controller?.push(c)
