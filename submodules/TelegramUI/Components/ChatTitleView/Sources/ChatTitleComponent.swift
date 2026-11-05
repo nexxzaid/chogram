@@ -970,7 +970,16 @@ public final class ChatTitleComponent: Component {
                                         userPresence = TelegramUserPresence(status: .none, lastActivity: 0)
                                     }
                                     let (string, activity) = stringAndActivityForUserPresence(strings: component.strings, dateTimeFormat: component.dateTimeFormat, presence: EnginePeer.Presence(userPresence), relativeTo: Int32(timestamp))
-                                    let attributedString = NSAttributedString(string: string, font: subtitleFont, textColor: activity ? component.theme.rootController.navigationBar.accentTextColor : component.theme.chat.inputPanel.inputControlColor)
+                                    let presenceColor = activity ? component.theme.rootController.navigationBar.accentTextColor : component.theme.chat.inputPanel.inputControlColor
+                                    let attributedString: NSAttributedString
+                                    if ChogramSettings.current.usernameInHeader, let username = peer.addressName {
+                                        // "Ник в заголовке": the username goes first in the secondary color, the presence keeps its own color.
+                                        let combined = NSMutableAttributedString(attributedString: NSAttributedString(string: "@\(username) · ", font: subtitleFont, textColor: component.theme.chat.inputPanel.inputControlColor))
+                                        combined.append(NSAttributedString(string: string, font: subtitleFont, textColor: presenceColor))
+                                        attributedString = combined
+                                    } else {
+                                        attributedString = NSAttributedString(string: string, font: subtitleFont, textColor: presenceColor)
+                                    }
                                     state = .info(attributedString, activity ? .online : .lastSeenTime)
                                 } else {
                                     let string = NSAttributedString(string: "", font: subtitleFont, textColor: component.theme.chat.inputPanel.inputControlColor)
