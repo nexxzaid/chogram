@@ -1,5 +1,6 @@
 import Foundation
 import Postbox
+import SwiftSignalKit
 
 private struct ChogramDeletedMessagesState: Codable {
     struct Entry: Codable {
