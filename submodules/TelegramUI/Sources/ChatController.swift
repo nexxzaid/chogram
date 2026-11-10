@@ -242,6 +242,7 @@ struct ScrolledToMessageId: Equatable {
 
 public final class ChatControllerImpl: TelegramBaseController, ChatController, GalleryHiddenMediaTarget, UIDropInteractionDelegate {    
     var validLayout: ContainerViewLayout?
+    var chogramSendConfirmed = false
     
     public weak var parentController: ViewController?
     public weak var customNavigationController: NavigationController?
@@ -1806,6 +1807,9 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
             if Namespaces.Message.allEphemeral.contains(message.id.namespace) {
                 return
             }
+            if case .default = reaction, strongSelf.chogramHandleDoubleTap(message: message) {
+                return
+            }
             if case .default = reaction, strongSelf.chatLocation.peerId == strongSelf.context.account.peerId {
                 return
             }
@@ -2394,6 +2398,12 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
                 return false
             }
             
+            if strongSelf.chogramConfirmSend(kind: .sticker, perform: {
+                let _ = strongSelf.controllerInteraction?.sendSticker(fileReference, silentPosting, schedule, query, clearInput, sourceView, sourceRect, sourceLayer, bubbleUpEmojiOrStickersets)
+            }) {
+                return false
+            }
+            
             if let _ = strongSelf.presentationInterfaceState.slowmodeState, strongSelf.presentationInterfaceState.subject != .scheduledMessages {
                 if let sourceView, let sourceRect {
                     strongSelf.interfaceInteraction?.displaySlowmodeTooltip(sourceView, sourceRect)
@@ -2669,6 +2679,12 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
             }
         }, sendGif: { [weak self] fileReference, sourceView, sourceRect, silentPosting, schedule in
             if let strongSelf = self {
+                if strongSelf.chogramConfirmSend(kind: .gif, perform: {
+                    let _ = strongSelf.controllerInteraction?.sendGif(fileReference, sourceView, sourceRect, silentPosting, schedule)
+                }) {
+                    return false
+                }
+                
                 if let _ = strongSelf.presentationInterfaceState.slowmodeState, strongSelf.presentationInterfaceState.subject != .scheduledMessages {
                     strongSelf.interfaceInteraction?.displaySlowmodeTooltip(sourceView, sourceRect)
                     return false
@@ -2720,6 +2736,11 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
             return true
         }, sendBotContextResultAsGif: { [weak self] collection, result, sourceView, sourceRect, silentPosting, resetTextInputState in
             guard let strongSelf = self else {
+                return false
+            }
+            if strongSelf.chogramConfirmSend(kind: .gif, perform: {
+                let _ = strongSelf.controllerInteraction?.sendBotContextResultAsGif(collection, result, sourceView, sourceRect, silentPosting, resetTextInputState)
+            }) {
                 return false
             }
             if case .pinnedMessages = strongSelf.presentationInterfaceState.subject {
@@ -6126,6 +6147,9 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
                             f(.dismissWithoutContent)
                             self?.interfaceInteraction?.beginMessageSearch(.everything, "")
                         })))
+                        if let chogramItem = chogramShowHiddenMenuItem(peerId: peer.id) {
+                            items.append(chogramItem)
+                        }
                                                 
                         return items
                     }
@@ -6778,6 +6802,10 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
                 }
                 if strongSelf.chatLocation.peerId == strongSelf.context.account.peerId {
                     chatTheme = nil
+                }
+                if ChogramSettings.current.disableChatThemes && chatThemePreview == nil {
+                    chatTheme = nil
+                    chatWallpaper = nil
                 }
                                 
                 var presentationData = presentationData
@@ -11200,7 +11228,7 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
         guard let contentData = self.contentData else {
             return
         }
-        self.chatDisplayNode.historyNode.offerNextChannelToRead = contentData.state.offerNextChannelToRead && self.presentationInterfaceState.interfaceState.selectionState == nil
+        self.chatDisplayNode.historyNode.offerNextChannelToRead = contentData.state.offerNextChannelToRead && !ChogramSettings.current.disableNextChannelSwipe && self.presentationInterfaceState.interfaceState.selectionState == nil
     }
     
     func displayGiveawayStatusInfo(messageId: EngineMessage.Id, giveawayInfo: PremiumGiveawayInfo) {

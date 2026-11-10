@@ -201,7 +201,16 @@ public class ChatMessageActionBubbleContentNode: ChatMessageBubbleContentNode {
                     messageCount = messages.count
                 }
                 
-                let attributedString = attributedServiceMessageString(theme: item.presentationData.theme, strings: item.presentationData.strings, nameDisplayOrder: item.presentationData.nameDisplayOrder, dateTimeFormat: item.presentationData.dateTimeFormat, message: item.message, messageCount: messageCount, accountPeerId: item.context.account.peerId, forForumOverview: forForumOverview)
+                var attributedString = attributedServiceMessageString(theme: item.presentationData.theme, strings: item.presentationData.strings, nameDisplayOrder: item.presentationData.nameDisplayOrder, dateTimeFormat: item.presentationData.dateTimeFormat, message: item.message, messageCount: messageCount, accountPeerId: item.context.account.peerId, forForumOverview: forForumOverview)
+                if ChogramSettings.current.showServiceMessageTime, !forForumOverview, let baseString = attributedString, baseString.length != 0 {
+                    let mutableString = NSMutableAttributedString(attributedString: baseString)
+                    let lastAttributes = baseString.attributes(at: baseString.length - 1, effectiveRange: nil)
+                    var timeAttributes: [NSAttributedString.Key: Any] = [:]
+                    timeAttributes[.font] = lastAttributes[.font]
+                    timeAttributes[.foregroundColor] = lastAttributes[.foregroundColor]
+                    mutableString.append(NSAttributedString(string: " · " + stringForMessageTimestamp(timestamp: item.message.timestamp, dateTimeFormat: item.presentationData.dateTimeFormat, withSeconds: ChogramSettings.current.showSecondsInTime), attributes: timeAttributes))
+                    attributedString = mutableString
+                }
             
                 var image: TelegramMediaImage?
                 var suggestedPost: TelegramMediaActionType.SuggestedPostApprovalStatus?

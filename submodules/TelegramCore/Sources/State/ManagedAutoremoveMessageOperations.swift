@@ -82,6 +82,10 @@ func managedAutoremoveMessageOperations(network: Network, postbox: Postbox, isRe
                     Logger.shared.log("Autoremove", "Performing autoremove for \(entry.messageId), isRemove: \(isRemove)")
 
                     if let message = transaction.getMessage(entry.messageId) {
+                        if ChogramSettings.current.saveViewOnceMedia && message.containsSecretMedia {
+                            transaction.clearTimestampBasedAttribute(id: entry.messageId, tag: tag)
+                            return
+                        }
                         if isRemove, let state = transaction.getState() as? AuthorizedAccountState, !_internal_chogramRetainDeletedMessages(transaction: transaction, accountPeerId: state.peerId, ids: [entry.messageId]).isEmpty {
                             return
                         }

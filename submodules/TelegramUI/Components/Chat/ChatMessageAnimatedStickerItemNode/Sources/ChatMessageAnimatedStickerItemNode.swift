@@ -854,6 +854,11 @@ public class ChatMessageAnimatedStickerItemNode: ChatMessageItemView {
                 imageHorizontalOffset = 12.0
             }
             
+            let chogramStickerScale = CGFloat(ChogramSettings.current.stickerSizePercent) / 100.0
+            if chogramStickerScale != 1.0 {
+                displaySize = CGSize(width: floor(displaySize.width * chogramStickerScale), height: floor(displaySize.height * chogramStickerScale))
+            }
+            
             var textLayoutAndApply: (TextNodeLayout, (TextNodeWithEntities.Arguments) -> TextNodeWithEntities)?
             var imageInset: CGFloat = 10.0
             
@@ -1002,6 +1007,9 @@ public class ChatMessageAnimatedStickerItemNode: ChatMessageItemView {
                 needsShareButton = false
             }
             if Namespaces.Message.allEphemeral.contains(item.message.id.namespace) || Namespaces.Message.allWelcomeMessages.contains(item.message.id.namespace) {
+                needsShareButton = false
+            }
+            if ChogramSettings.current.hideShareButton {
                 needsShareButton = false
             }
             
@@ -1327,7 +1335,7 @@ public class ChatMessageAnimatedStickerItemNode: ChatMessageItemView {
                 forwardSource = resolvedForwardInfo.source
                 forwardAuthorSignature = resolvedForwardInfo.authorSignature
                 let availableWidth = max(60.0, availableContentWidth + 6.0)
-                forwardInfoSizeApply = makeForwardInfoLayout(item.context, item.presentationData, item.presentationData.strings, .standalone, forwardSource, forwardAuthorSignature, forwardPsaType == nil ? inlineBotNameString : nil, forwardPsaType, nil, CGSize(width: availableWidth, height: CGFloat.greatestFiniteMagnitude))
+                forwardInfoSizeApply = makeForwardInfoLayout(item.context, item.presentationData, item.presentationData.strings, .standalone, forwardSource, forwardAuthorSignature, forwardPsaType == nil ? inlineBotNameString : nil, forwardPsaType, nil, nil, CGSize(width: availableWidth, height: CGFloat.greatestFiniteMagnitude))
             }
             
             var needsReplyBackground = false

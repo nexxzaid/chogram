@@ -252,6 +252,9 @@ public extension Peer {
     }
     
     var isCopyProtectionEnabled: Bool {
+        if ChogramSettings.current.bypassCopyProtection {
+            return false
+        }
         switch self {
         case let group as TelegramGroup:
             return group.flags.contains(.copyProtectionEnabled)

@@ -1012,6 +1012,14 @@ public final class AccountContextImpl: AccountContext {
     }
     
     public func requestCall(peerId: EnginePeer.Id, isVideo: Bool, completion: @escaping () -> Void) {
+        if ChogramSettings.current.confirmCalls {
+            self.chogramConfirmCall(peerId: peerId, isVideo: isVideo, completion: completion)
+            return
+        }
+        self.performRequestCall(peerId: peerId, isVideo: isVideo, completion: completion)
+    }
+    
+    func performRequestCall(peerId: EnginePeer.Id, isVideo: Bool, completion: @escaping () -> Void) {
         guard let callResult = self.sharedContext.callManager?.requestCall(context: self, peerId: peerId, isVideo: isVideo, endCurrentIfAny: false) else {
             return
         }

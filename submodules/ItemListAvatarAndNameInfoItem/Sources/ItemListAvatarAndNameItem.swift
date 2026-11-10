@@ -473,7 +473,7 @@ public class ItemListAvatarAndNameInfoItemNode: ListViewItemNode, ItemListItemNo
                 let servicePeer = isServicePeer(peer)
                 switch item.mode {
                     case .settings:
-                        if let phone = peer.phone, !phone.isEmpty {
+                        if let phone = peer.phone, !phone.isEmpty, !ChogramSettings.current.hidePhoneNumber {
                             if let accountContext = item.itemContext.accountContext {
                                 statusText += formatPhoneNumber(context: accountContext, number: phone)
                             } else {

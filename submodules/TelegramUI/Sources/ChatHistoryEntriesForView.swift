@@ -154,6 +154,14 @@ func chatHistoryEntriesForView(
             continue
         }
         
+        if ChogramHiddenMessages.isHidden(message.id) {
+            continue
+        }
+        
+        if chogramShouldHideBlockedMessage(context: context, message: message) {
+            continue
+        }
+        
         if case let .replyThread(replyThreadMessage) = location, replyThreadMessage.isForumPost {
             for media in message.media {
                 if let action = media as? TelegramMediaAction {

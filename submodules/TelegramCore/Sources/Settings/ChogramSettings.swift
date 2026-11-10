@@ -161,7 +161,7 @@ public struct ChogramSettings: Equatable {
     }
 
     // Ghost mode for one account: with "per account" on, an account in ghostDisabledAccountIds is visible.
-    public func ghostMode(accountPeerId: Int64) -> Bool {
+    public func isGhostModeActive(accountPeerId: Int64) -> Bool {
         if !self.ghostMode {
             return false
         }
@@ -171,7 +171,37 @@ public struct ChogramSettings: Equatable {
         return true
     }
 
+    // Message layout reads the settings many times per frame, so they are cached and dropped whenever
+    // UserDefaults changes (save() writes there, and so does code that sets a chogram.* key directly).
+    private static let cacheLock = NSLock()
+    private static var cachedSettings: ChogramSettings?
+    private static var cacheObserver: NSObjectProtocol?
+
     public static var current: ChogramSettings {
+        ChogramSettings.cacheLock.lock()
+        defer {
+            ChogramSettings.cacheLock.unlock()
+        }
+        if ChogramSettings.cacheObserver == nil {
+            ChogramSettings.cacheObserver = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: nil, using: { _ in
+                ChogramSettings.invalidateCache()
+            })
+        }
+        if let cachedSettings = ChogramSettings.cachedSettings {
+            return cachedSettings
+        }
+        let settings = ChogramSettings.load()
+        ChogramSettings.cachedSettings = settings
+        return settings
+    }
+
+    private static func invalidateCache() {
+        ChogramSettings.cacheLock.lock()
+        ChogramSettings.cachedSettings = nil
+        ChogramSettings.cacheLock.unlock()
+    }
+
+    private static func load() -> ChogramSettings {
         let defaults = UserDefaults.standard
         var settings = ChogramSettings(
             keepDeletedMessages: defaults.object(forKey: keepDeletedMessagesKey) as? Bool ?? true,
@@ -224,6 +254,7 @@ public struct ChogramSettings: Equatable {
         defaults.set(self.personalChatAsGroup, forKey: ChogramSettings.personalChatAsGroupKey)
         defaults.set(self.usernameInHeader, forKey: ChogramSettings.usernameInHeaderKey)
         self.saveExtended(to: defaults)
+        ChogramSettings.invalidateCache()
         NotificationCenter.default.post(name: ChogramSettings.didChangeNotification, object: nil)
     }
 

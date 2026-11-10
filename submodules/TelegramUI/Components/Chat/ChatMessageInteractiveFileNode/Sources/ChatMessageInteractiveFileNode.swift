@@ -788,6 +788,10 @@ public final class ChatMessageInteractiveFileNode: ASDisplayNode {
                     }
                 }
                 
+                if ChogramSettings.current.hidePremiumUpsell && !arguments.associatedData.isPremium && !arguments.associatedData.alwaysDisplayTranscribeButton.providedByGroupBoost {
+                    displayTranscribe = false
+                }
+                
                 let transcribedText = forcedAudioTranscriptionText ?? transcribedText(message: EngineMessage(arguments.message))
                 
                 switch audioTranscriptionState {

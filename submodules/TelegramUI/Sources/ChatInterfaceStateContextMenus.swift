@@ -490,8 +490,35 @@ private func ephemeralReplacementContextMenuItems(chatPresentationInterfaceState
 }
 
 // A deleted message no longer exists on the server, so everything that addresses it there would fail.
-private func chogramDeletedMessageContextMenuItems(chatPresentationInterfaceState: ChatPresentationInterfaceState, context: AccountContext, messages: [EngineRawMessage], controllerInteraction: ChatControllerInteraction) -> ContextController.Items {
+private func chogramDeletedMessageContextMenuItems(chatPresentationInterfaceState: ChatPresentationInterfaceState, context: AccountContext, messages: [EngineRawMessage], controllerInteraction: ChatControllerInteraction, interfaceInteraction: ChatPanelInterfaceInteraction) -> ContextController.Items {
     var actions: [ContextMenuItem] = []
+    
+    if messages.count == 1, let message = messages.first, !message.text.isEmpty {
+        actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_ContextMenuReply, icon: { theme in
+            return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Reply"), color: theme.actionSheet.primaryTextColor)
+        }, action: { _, f in
+            f(.dismissWithoutContent)
+            chogramReplyToDeletedMessage(message: message, interfaceInteraction: interfaceInteraction)
+        })))
+    }
+    
+    if !chatPresentationInterfaceState.copyProtectionEnabled, !messages.contains(where: { $0.isCopyProtected() }) {
+        actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_ContextMenuForward, icon: { theme in
+            return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Forward"), color: theme.actionSheet.primaryTextColor)
+        }, action: { _, f in
+            f(.dismissWithoutContent)
+            chogramForwardDeletedMessages(context: context, messages: messages, controllerInteraction: controllerInteraction)
+        })))
+    }
+    
+    if messages.count == 1, let message = messages.first, chogramHasEditHistory(message: message) {
+        actions.append(.action(ContextMenuActionItem(text: "История правок", icon: { theme in
+            return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Time"), color: theme.actionSheet.primaryTextColor)
+        }, action: { _, f in
+            f(.dismissWithoutContent)
+            controllerInteraction.navigationController()?.pushViewController(chogramEditHistoryController(context: context, message: message))
+        })))
+    }
     
     if messages.count == 1, let message = messages.first, !message.text.isEmpty, !chatPresentationInterfaceState.copyProtectionEnabled, !message.isCopyProtected() {
         actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_ContextMenuCopy, icon: { theme in
@@ -529,7 +556,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
         }
     }
     if messages.contains(where: { $0.attributes.contains(where: { $0 is ChogramDeletedMessageAttribute }) }) {
-        return .single(chogramDeletedMessageContextMenuItems(chatPresentationInterfaceState: chatPresentationInterfaceState, context: context, messages: messages, controllerInteraction: controllerInteraction))
+        return .single(chogramDeletedMessageContextMenuItems(chatPresentationInterfaceState: chatPresentationInterfaceState, context: context, messages: messages, controllerInteraction: controllerInteraction, interfaceInteraction: interfaceInteraction))
     }
     if let message = messages.first, message.activeEphemeralReplacementMessage != nil {
         return ephemeralReplacementContextMenuItems(chatPresentationInterfaceState: chatPresentationInterfaceState, context: context, message: message, controllerInteraction: controllerInteraction, interfaceInteraction: interfaceInteraction)
@@ -1230,7 +1257,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             isReplyThreadHead = messages[0].id == replyThreadMessage.effectiveTopId
         }
         
-        if !isPinnedMessages, !isReplyThreadHead, data.canReply {
+        if !isPinnedMessages, !isReplyThreadHead, data.canReply, ChogramMessageMenuItem.isVisible(.reply) {
             actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_ContextMenuReply, icon: { theme in
                 return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Reply"), color: theme.actionSheet.primaryTextColor)
             }, action: { c, _ in
@@ -1415,7 +1442,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
         if !messageText.isEmpty || richMessageMarkdown != nil || (resourceAvailable && isImage) || diceEmoji != nil {
             if !isExpired {
                 if !isPoll {
-                    if !isCopyProtected {
+                    if !isCopyProtected, ChogramMessageMenuItem.isVisible(.copy) {
                         actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_ContextMenuCopy, icon: { theme in
                             return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Copy"), color: theme.actionSheet.primaryTextColor)
                         }, action: { _, f in
@@ -1528,7 +1555,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                 if let peerId = chatPresentationInterfaceState.chatLocation.peerId, peerId.namespace == Namespaces.Peer.SecretChat {
                     canTranslate = false
                 }
-                if canTranslate {
+                if canTranslate, ChogramMessageMenuItem.isVisible(.translate) {
                     actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_ContextMenuTranslate, icon: { theme in
                         return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Translate"), color: theme.actionSheet.primaryTextColor)
                     }, action: { _, f in
@@ -1542,6 +1569,10 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                         controllerInteraction.performTextSelectionAction(message, !isCopyProtected, NSAttributedString(string: messageText), messageEntities, .translate)
                         f(.default)
                     })))
+                }
+                
+                if let currencyAction = chogramCurrencyContextMenuAction(text: messageText, controllerInteraction: controllerInteraction) {
+                    actions.append(currencyAction)
                 }
                 
                 if isSpeakSelectionEnabled() && !messageText.isEmpty {
@@ -1567,7 +1598,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             }
         }
         
-        if resourceAvailable, !message.containsSecretMedia && !isCopyProtected {
+        if resourceAvailable, (!message.containsSecretMedia || ChogramSettings.current.saveViewOnceMedia) && !isCopyProtected {
             var mediaReference: AnyMediaReference?
             var isVideo = false
             for media in message.effectiveMedia {
@@ -1697,7 +1728,16 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             }
         }
         
-        if data.canEdit && !isPinnedMessages && !isMigrated {
+        if messages.count == 1, chogramHasEditHistory(message: messages[0]) {
+            actions.append(.action(ContextMenuActionItem(text: "История правок", icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Time"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, f in
+                f(.dismissWithoutContent)
+                controllerInteraction.navigationController()?.pushViewController(chogramEditHistoryController(context: context, message: messages[0]))
+            })))
+        }
+        
+        if data.canEdit && !isPinnedMessages && !isMigrated && ChogramMessageMenuItem.isVisible(.edit) {
             actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_MessageDialogEdit, icon: { theme in
                 return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Edit"), color: theme.actionSheet.primaryTextColor)
             }, action: { c, f in
@@ -1804,7 +1844,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             canPin = false
         }
         
-        if canPin {
+        if canPin, ChogramMessageMenuItem.isVisible(.pin) {
             var pinnedSelectedMessageId: EngineMessage.Id?
             for message in messages {
                 if message.tags.contains(.pinned) {
@@ -2010,7 +2050,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
         }
 
         if data.messageActions.options.contains(.forward) {
-            if !isCopyProtected {
+            if !isCopyProtected, ChogramMessageMenuItem.isVisible(.forward) {
                 actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_ContextMenuForward, icon: { theme in
                     return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Forward"), color: theme.actionSheet.primaryTextColor)
                 }, action: { _, f in
@@ -2021,11 +2061,13 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
         }
         
         if data.messageActions.options.contains(.report) {
-            actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_ContextMenuReport, icon: { theme in
-                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Report"), color: theme.actionSheet.primaryTextColor)
-            }, action: { controller, f in
-                interfaceInteraction.reportMessages(messages, controller)
-            })))
+            if ChogramMessageMenuItem.isVisible(.report) {
+                actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_ContextMenuReport, icon: { theme in
+                    return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Report"), color: theme.actionSheet.primaryTextColor)
+                }, action: { controller, f in
+                    interfaceInteraction.reportMessages(messages, controller)
+                })))
+            }
         } else if message.id.peerId.isReplies {
             actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_ContextMenuBlock, textColor: .destructive, icon: { theme in
                 return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Restrict"), color: theme.actionSheet.destructiveActionTextColor)
@@ -2157,7 +2199,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                         interfaceInteraction.deleteMessages(selectAll ? messages : [message], controller, f)
                     }
                 }), false))
-            } else if !isUnremovableAction {
+            } else if !isUnremovableAction, ChogramMessageMenuItem.isVisible(.delete) {
                 var iconName: String = isSending ? "Chat/Context Menu/Clear" : "Chat/Context Menu/Delete"
                 if message.attributes.contains(where: { $0 is PublishedSuggestedPostMessageAttribute }) && message.timestamp > Int32(Date().timeIntervalSince1970) - 60 * 60 * 24 {
                     iconName = "Chat/Context Menu/DeletePaid"
@@ -2186,7 +2228,16 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             }, action: noAction)))
         }
 
-        if !isPinnedMessages, !isReplyThreadHead, data.canSelect {
+        if !isCopyProtected, ChogramMessageMenuItem.isVisible(.saveAsImage) {
+            actions.append(.action(ContextMenuActionItem(text: "Сохранить картинкой", icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Image"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, f in
+                f(.dismissWithoutContent)
+                NotificationCenter.default.post(name: Notification.Name("chogram.saveAsImage"), object: nil, userInfo: ["ids": messages.map { $0.id }])
+            })))
+        }
+
+        if !isPinnedMessages, !isReplyThreadHead, data.canSelect, ChogramMessageMenuItem.isVisible(.select) {
             var didAddSeparator = false
             if !selectAll || messages.count == 1 {
                 if !actions.isEmpty && !didAddSeparator {
@@ -2218,6 +2269,8 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                 })))
             }
         }
+        
+        actions.append(contentsOf: chogramMessageContextMenuActions(context: context, chatPresentationInterfaceState: chatPresentationInterfaceState, message: message, messages: messages, isCopyProtected: isCopyProtected, controllerInteraction: controllerInteraction))
         
         var canViewStats = false
         var canViewAuthor = false

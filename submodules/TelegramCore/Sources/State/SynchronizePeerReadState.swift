@@ -284,7 +284,7 @@ private func pushPeerReadState(network: Network, postbox: Postbox, stateManager:
         }
     } else {
         // The server keeps the old state, so validation may bring the unread badge back later.
-        if ChogramSettings.current.hidesReadReceipts {
+        if chogramHidesReadReceipts(accountPeerId: stateManager.accountPeerId) {
             return .single(readState)
         }
         return inputPeer(postbox: postbox, peerId: peerId)

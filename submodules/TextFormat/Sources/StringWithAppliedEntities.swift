@@ -478,6 +478,7 @@ public func stringWithAppliedEntities(_ text: String, entities: [MessageTextEnti
                 break
         }
         
+        let codeFont = chogramCodeFont(fixedFont)
         func setFont(range: NSRange, fontAttributes: ChatTextFontAttributes) {
             var font: UIFont
             
@@ -494,7 +495,7 @@ public func stringWithAppliedEntities(_ text: String, entities: [MessageTextEnti
             } else if fontAttributes == [.italic] {
                 font = italicFont
             } else if fontAttributes == [.monospace] {
-                font = fixedFont
+                font = codeFont
             } else if fontAttributes == [.smaller] {
                 font = baseFont.withSize(floor(baseFont.pointSize * 0.9))
             } else {

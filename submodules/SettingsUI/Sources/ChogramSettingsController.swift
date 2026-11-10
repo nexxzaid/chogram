@@ -31,7 +31,7 @@ private let chogramAppIcons: [(name: String?, imageName: String, title: String)]
 
 private let chogramThemeCache = Atomic<(base: PresentationTheme, theme: PresentationTheme)?>(value: nil)
 
-private func chogramPresentationData(_ presentationData: PresentationData) -> PresentationData {
+func chogramPresentationData(_ presentationData: PresentationData) -> PresentationData {
     let theme = presentationData.theme
     if let cached = chogramThemeCache.with({ $0 }), cached.base === theme {
         return presentationData.withUpdated(theme: cached.theme)
@@ -47,7 +47,7 @@ private func chogramPresentationData(_ presentationData: PresentationData) -> Pr
     return presentationData.withUpdated(theme: updatedTheme)
 }
 
-private func chogramIcon(_ name: String, presentationData: ItemListPresentationData) -> UIImage? {
+func chogramIcon(_ name: String, presentationData: ItemListPresentationData) -> UIImage? {
     return generateTintedImage(image: UIImage(bundleImageName: "Chogram/\(name)"), color: presentationData.theme.list.itemAccentColor)
 }
 
@@ -72,7 +72,7 @@ private func chogramStylePreviewImage(theme: PresentationTheme, appearance: Chog
     })
 }
 
-private final class ChogramSettingsStore {
+final class ChogramSettingsStore {
     private let value: Atomic<ChogramSettings>
     private let promise: ValuePromise<ChogramSettings>
 
@@ -159,7 +159,49 @@ private let chogramSearchItems: [(title: String, icon: String, screen: Int)] = [
     ("Фото в высоком качестве", "Media", 6),
     ("Видео в лучшем качестве", "Media", 6),
     ("Что нового", "Update", 8),
-    ("Уведомления", "Bell", 9)
+    ("Уведомления", "Bell", 9),
+    ("Удалённые: история правок", "Trash", 1),
+    ("Метка изменённых", "Trash", 1),
+    ("Сохранять фото и файлы удалённых", "Trash", 1),
+    ("Сохранять в чатах с ботами", "Trash", 1),
+    ("Писать, не появляясь в сети", "Ghost", 0),
+    ("Спрашивать перед просмотром истории", "Ghost", 0),
+    ("Призрак отдельно для каждого аккаунта", "Ghost", 0),
+    ("Защита", "Eye", 10),
+    ("Разрешить скриншоты и запись экрана", "Eye", 10),
+    ("Сохранять фото и видео с таймером", "Eye", 10),
+    ("Снять запреты на копирование и пересылку", "Eye", 10),
+    ("Подтверждать звонки", "Chats", 5),
+    ("Спрашивать перед отправкой стикеров, GIF, голосовых, кружков", "Chats", 5),
+    ("Двойной тап по чужим", "Chats", 5),
+    ("Двойной тап по своим", "Chats", 5),
+    ("Меню сообщения", "Chats", 11),
+    ("Секунды во времени", "Chats", 5),
+    ("Время у служебных сообщений", "Chats", 5),
+    ("Дата пересланных сообщений", "Chats", 5),
+    ("Не переходить в следующий канал", "Chats", 5),
+    ("Пересчёт валют", "Chats", 5),
+    ("Скрыть мой номер на экране", "Profile", 4),
+    ("Скрывать заблокированных в группах", "Profile", 4),
+    ("Размер стикеров", "Media", 6),
+    ("Камера для кружков", "Media", 6),
+    ("Только мои стикеры и эмодзи", "Media", 6),
+    ("Ускорить загрузку и отправку", "Media", 6),
+    ("Сообщения без хвостиков", "Palette", 2),
+    ("Заголовок списка чатов", "Palette", 2),
+    ("Скрыть вкладку «Все чаты»", "Palette", 2),
+    ("Снег", "Palette", 2),
+    ("Цвет у HEX-кодов", "Palette", 2),
+    ("Без видеоаватарок", "Palette", 2),
+    ("Без чужих тем в чатах", "Palette", 2),
+    ("Шрифт кода", "Palette", 2),
+    ("Убрать лишнее", "Palette", 2),
+    ("Кнопка «Поделиться» сбоку", "Palette", 2),
+    ("Отправить как канал", "Palette", 2),
+    ("Приветственный стикер", "Palette", 2),
+    ("Кнопка звука в каналах", "Palette", 2),
+    ("Премиум-кнопки", "Palette", 2),
+    ("Похожие каналы", "Palette", 2)
 ]
 
 private enum ChogramSettingsSection: Int32 {
@@ -180,6 +222,7 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
     case categoriesHeader
     case ghostMode(String)
     case deletedMessages(String)
+    case protection
     case notifications(String)
     case profiles
     case chats
@@ -204,7 +247,7 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
             return ChogramSettingsSection.header.rawValue
         case .update:
             return ChogramSettingsSection.update.rawValue
-        case .categoriesHeader, .ghostMode, .deletedMessages, .notifications, .profiles, .chats, .media, .looks, .cleanText, .hideAds:
+        case .categoriesHeader, .ghostMode, .deletedMessages, .protection, .notifications, .profiles, .chats, .media, .looks, .cleanText, .hideAds:
             return ChogramSettingsSection.categories.rawValue
         case .linksHeader, .developer, .repository:
             return ChogramSettingsSection.links.rawValue
@@ -229,32 +272,34 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
             return 3
         case .deletedMessages:
             return 4
-        case .notifications:
+        case .protection:
             return 5
-        case .profiles:
+        case .notifications:
             return 6
-        case .chats:
+        case .profiles:
             return 7
-        case .media:
+        case .chats:
             return 8
-        case .looks:
+        case .media:
             return 9
-        case .cleanText:
+        case .looks:
             return 10
-        case .hideAds:
+        case .cleanText:
             return 11
-        case .linksHeader:
+        case .hideAds:
             return 12
-        case .developer:
+        case .linksHeader:
             return 13
-        case .repository:
+        case .developer:
             return 14
-        case .whatsNewHeader:
+        case .repository:
             return 15
-        case .whatsNew:
+        case .whatsNewHeader:
             return 16
-        case .whatsNewHistory:
+        case .whatsNew:
             return 17
+        case .whatsNewHistory:
+            return 18
         }
     }
 
@@ -294,6 +339,10 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
         case let .notifications(summary):
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Bell", presentationData: presentationData), title: "Уведомления", label: summary, sectionId: self.section, style: .blocks, action: {
                 arguments.openScreen(9)
+            })
+        case .protection:
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Eye", presentationData: presentationData), title: "Защита", label: "", sectionId: self.section, style: .blocks, action: {
+                arguments.openScreen(10)
             })
         case .profiles:
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Profile", presentationData: presentationData), title: "Профили", label: "", sectionId: self.section, style: .blocks, action: {
@@ -388,29 +437,24 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
                 ChogramToggleRow(title: "ID и дата-центр", keyPath: \.showProfileDetails, onChange: nil),
                 ChogramToggleRow(title: "Видно, что я в Чограме", keyPath: \.shareChogramPresence, onChange: { _ in
                     ChogramPresence.shared.syncOwnPresence(accountPeerId: context.account.peerId)
-                })
+                }),
+                ChogramToggleRow(title: "Скрыть мой номер на экране", keyPath: \.hidePhoneNumber, onChange: nil),
+                ChogramToggleRow(title: "Скрывать заблокированных в группах", keyPath: \.hideBlockedInGroups, onChange: nil)
             ], footer: "В профиле появятся ID, примерная дата создания аккаунта и дата-центр. Чтобы другие пользователи Чограма видели у тебя отметку «Пользуется Чограмом», Чограм сообщает серверу только ID аккаунта. Выключишь — ID удалится с сервера."))
         case 5:
-            pushControllerImpl?(chogramToggleController(context: context, store: store, title: "Чаты", rows: [
-                ChogramToggleRow(title: "Чаты как группа", keyPath: \.personalChatAsGroup, onChange: nil),
-                ChogramToggleRow(title: "Ник в заголовке", keyPath: \.usernameInHeader, onChange: nil)
-            ], footer: "«Как группа» — у сообщений собеседника появится аватарка, а у всех сообщений имя. Ник показывается рядом со статусом в заголовке чата. Изменения видны после повторного открытия чата."))
+            pushControllerImpl?(chogramChatsController(context: context, store: store))
         case 6:
-            pushControllerImpl?(chogramToggleController(context: context, store: store, title: "Медиа", rows: [
-                ChogramToggleRow(title: "Фото в высоком качестве", keyPath: \.photoWithoutCompression, onChange: { value in
-                    UserDefaults.standard.set(value, forKey: "TG_photoHighQuality_v0")
-                }),
-                ChogramToggleRow(title: "Видео в лучшем качестве", keyPath: \.videoWithoutCompression, onChange: { value in
-                    // 5 is the "very high" video preset, 0 lets Telegram pick.
-                    UserDefaults.standard.set(value ? 5 : 0, forKey: "TG_preferredVideoPreset_v0")
-                })
-            ], footer: "Фото уходят в HD, а видео в лучшем качестве, которое позволяет Telegram. Для одного файла качество можно сменить в редакторе перед отправкой."))
+            pushControllerImpl?(chogramMediaController(context: context, store: store))
         case 7:
             pushControllerImpl?(chogramFontsController(context: context))
         case 8:
             pushControllerImpl?(chogramBuildHistoryController(context: context, updates: updatesPromise.get()))
         case 9:
             pushControllerImpl?(chogramNotificationsController(context: context))
+        case 10:
+            pushControllerImpl?(chogramProtectionController(context: context, store: store))
+        case 11:
+            pushControllerImpl?(chogramMessageMenuController(context: context, store: store))
         default:
             pushControllerImpl?(chogramCleanTextController(context: context, store: store))
         }
@@ -483,6 +527,7 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
                 .categoriesHeader,
                 .ghostMode(chogramGhostSummary(settings: settings)),
                 .deletedMessages(settings.keepDeletedMessages ? "\(deletedMessagesCount)" : "Выкл."),
+                .protection,
                 .notifications(pushConnected ? "Вкл." : "Выкл."),
                 .profiles,
                 .chats,
@@ -529,9 +574,11 @@ public func chogramSettingsController(context: AccountContext) -> ViewController
 
 private final class ChogramGhostModeControllerArguments {
     let store: ChogramSettingsStore
+    let form: ChogramFormArguments
 
     init(store: ChogramSettingsStore) {
         self.store = store
+        self.form = ChogramFormArguments(store: store, didUpdate: { _ in }, open: { _ in })
     }
 }
 
@@ -549,11 +596,14 @@ private enum ChogramGhostModeEntry: ItemListNodeEntry {
     case hideTyping(Bool)
     case readOnSend(Bool)
     case footer
+    case form(ChogramFormEntry)
 
     var section: ItemListSectionId {
         switch self {
         case .enabled:
             return ChogramGhostModeSection.enabled.rawValue
+        case let .form(entry):
+            return 100 + entry.section
         default:
             return ChogramGhostModeSection.options.rawValue
         }
@@ -577,6 +627,8 @@ private enum ChogramGhostModeEntry: ItemListNodeEntry {
             return 6
         case .footer:
             return 7
+        case let .form(entry):
+            return entry.stableId
         }
     }
 
@@ -613,13 +665,15 @@ private enum ChogramGhostModeEntry: ItemListNodeEntry {
             return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Читать чат при отправке", value: value, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.store.update { $0.ghostReadOnSend = value }
             })
+        case let .form(entry):
+            return entry.item(presentationData: presentationData, arguments: arguments.form)
         case .footer:
             return ItemListTextItem(presentationData: presentationData, text: .plain("Отправка сообщения всё равно покажет тебя в сети. «Читать чат при отправке» отмечает прочитанными сообщения только в том чате, куда ты пишешь. Включать режим можно кнопкой в списке чатов."), sectionId: self.section)
         }
     }
 }
 
-private func chogramGhostModeEntries(settings: ChogramSettings) -> [ChogramGhostModeEntry] {
+private func chogramGhostModeEntries(settings: ChogramSettings, accounts: [ChogramFormAccount]) -> [ChogramGhostModeEntry] {
     var entries: [ChogramGhostModeEntry] = [.enabled(settings.ghostMode)]
     if settings.ghostMode {
         entries.append(.optionsHeader)
@@ -632,6 +686,9 @@ private func chogramGhostModeEntries(settings: ChogramSettings) -> [ChogramGhost
         }
     }
     entries.append(.footer)
+    for entry in chogramGhostFormEntries(settings: settings, accounts: accounts) {
+        entries.append(.form(entry))
+    }
     return entries
 }
 
@@ -640,12 +697,13 @@ private func chogramGhostModeController(context: AccountContext, store: ChogramS
 
     let signal = combineLatest(queue: .mainQueue(),
         context.sharedContext.presentationData,
-        store.settings
+        store.settings,
+        chogramFormAccountsSignal(context: context)
     )
-    |> map { presentationData, settings -> (ItemListControllerState, (ItemListNodeState, Any)) in
+    |> map { presentationData, settings, accounts -> (ItemListControllerState, (ItemListNodeState, Any)) in
         let presentationData = chogramPresentationData(presentationData)
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Режим призрака"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
-        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: chogramGhostModeEntries(settings: settings), style: .blocks, animateChanges: true)
+        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: chogramGhostModeEntries(settings: settings, accounts: accounts), style: .blocks, animateChanges: true)
 
         return (controllerState, (listState, arguments))
     }
@@ -658,9 +716,11 @@ private func chogramGhostModeController(context: AccountContext, store: ChogramS
 private final class ChogramDeletedMessagesControllerArguments {
     let store: ChogramSettingsStore
     let clearDeletedMessages: () -> Void
+    let form: ChogramFormArguments
 
     init(store: ChogramSettingsStore, clearDeletedMessages: @escaping () -> Void) {
         self.store = store
+        self.form = ChogramFormArguments(store: store, didUpdate: { _ in }, open: { _ in })
         self.clearDeletedMessages = clearDeletedMessages
     }
 }
@@ -691,6 +751,7 @@ private enum ChogramDeletedMessagesEntry: ItemListNodeEntry {
 
     case clear(Int)
     case footer
+    case form(ChogramFormEntry)
 
     var section: ItemListSectionId {
         switch self {
@@ -706,6 +767,8 @@ private enum ChogramDeletedMessagesEntry: ItemListNodeEntry {
             return ChogramDeletedMessagesSection.label.rawValue
         case .clear, .footer:
             return ChogramDeletedMessagesSection.clear.rawValue
+        case let .form(entry):
+            return 100 + entry.section
         }
     }
 
@@ -732,9 +795,11 @@ private enum ChogramDeletedMessagesEntry: ItemListNodeEntry {
         case .showDeletionTime:
             return 15
         case .clear:
-            return 16
+            return 5000
         case .footer:
-            return 17
+            return 5001
+        case let .form(entry):
+            return entry.stableId
         }
     }
 
@@ -783,6 +848,8 @@ private enum ChogramDeletedMessagesEntry: ItemListNodeEntry {
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: "Очистить сохранённые (\(count))", kind: count == 0 ? .disabled : .destructive, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.clearDeletedMessages()
             })
+        case let .form(entry):
+            return entry.item(presentationData: presentationData, arguments: arguments.form)
         case .footer:
             return ItemListTextItem(presentationData: presentationData, text: .plain("Видны только тебе. Секретные чаты и сообщения с таймером не сохраняются. Новый вид появится, когда откроешь чат заново."), sectionId: self.section)
         }
@@ -806,6 +873,9 @@ private func chogramDeletedMessagesEntries(settings: ChogramSettings, deletedMes
     entries.append(.labelHeader)
     entries.append(.label(settings.deletedMessageLabel))
     entries.append(.showDeletionTime(settings.showDeletionTime))
+    for entry in chogramDeletedFormEntries(settings: settings) {
+        entries.append(.form(entry))
+    }
     entries.append(.clear(deletedMessagesCount))
     entries.append(.footer)
     return entries
@@ -859,8 +929,10 @@ private final class ChogramLooksControllerArguments {
     let selectAppIcon: (String?) -> Void
     let updateAvatarCorners: (Double) -> Void
     let openFonts: () -> Void
+    let form: ChogramFormArguments
 
-    init(selectAppIcon: @escaping (String?) -> Void, updateAvatarCorners: @escaping (Double) -> Void, openFonts: @escaping () -> Void) {
+    init(selectAppIcon: @escaping (String?) -> Void, updateAvatarCorners: @escaping (Double) -> Void, openFonts: @escaping () -> Void, form: ChogramFormArguments) {
+        self.form = form
         self.selectAppIcon = selectAppIcon
         self.updateAvatarCorners = updateAvatarCorners
         self.openFonts = openFonts
@@ -880,6 +952,7 @@ private enum ChogramLooksEntry: ItemListNodeEntry {
     case avatarsHeader
     case avatarCorners(Double)
     case avatarsFooter
+    case form(ChogramFormEntry)
 
     var section: ItemListSectionId {
         switch self {
@@ -889,6 +962,8 @@ private enum ChogramLooksEntry: ItemListNodeEntry {
             return ChogramLooksSection.appIcon.rawValue
         case .avatarsHeader, .avatarCorners, .avatarsFooter:
             return ChogramLooksSection.avatars.rawValue
+        case let .form(entry):
+            return 100 + entry.section
         }
     }
 
@@ -906,6 +981,8 @@ private enum ChogramLooksEntry: ItemListNodeEntry {
             return 3
         case .avatarsFooter:
             return 4
+        case let .form(entry):
+            return entry.stableId
         }
     }
 
@@ -932,6 +1009,8 @@ private enum ChogramLooksEntry: ItemListNodeEntry {
             return ChogramAvatarShapeItem(theme: presentationData.theme, value: value, sectionId: self.section, updated: { value in
                 arguments.updateAvatarCorners(value)
             })
+        case let .form(entry):
+            return entry.item(presentationData: presentationData, arguments: arguments.form)
         case .avatarsFooter:
             return ItemListTextItem(presentationData: presentationData, text: .plain("Новая форма появится после перезапуска приложения."), sectionId: self.section)
         }
@@ -956,19 +1035,25 @@ private func chogramLooksController(context: AccountContext, store: ChogramSetti
         },
         openFonts: {
             pushControllerImpl?(chogramFontsController(context: context))
-        }
+        },
+        form: ChogramFormArguments(store: store, didUpdate: { _ in }, open: { key in
+            chogramOpenLooksForm(key: key, context: context, store: store, push: { c in
+                pushControllerImpl?(c)
+            })
+        })
     )
 
     let signal = combineLatest(queue: .mainQueue(),
         context.sharedContext.presentationData,
         appIconNamePromise.get(),
         avatarCornersPromise.get(),
-        fontLabelPromise.get()
+        fontLabelPromise.get(),
+        store.settings
     )
-    |> map { presentationData, appIconName, avatarCorners, fontLabel -> (ItemListControllerState, (ItemListNodeState, Any)) in
+    |> map { presentationData, appIconName, avatarCorners, fontLabel, settings -> (ItemListControllerState, (ItemListNodeState, Any)) in
         let presentationData = chogramPresentationData(presentationData)
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Оформление"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
-        let entries: [ChogramLooksEntry] = [
+        var entries: [ChogramLooksEntry] = [
             .font(fontLabel),
             .appIconHeader,
             .appIcon(appIconName),
@@ -976,6 +1061,9 @@ private func chogramLooksController(context: AccountContext, store: ChogramSetti
             .avatarCorners(avatarCorners),
             .avatarsFooter
         ]
+        for entry in chogramLooksFormEntries(settings: settings) {
+            entries.append(.form(entry))
+        }
         let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: entries, style: .blocks, animateChanges: false)
 
         return (controllerState, (listState, arguments))

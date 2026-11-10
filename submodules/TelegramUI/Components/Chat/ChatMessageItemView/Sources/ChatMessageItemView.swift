@@ -915,6 +915,28 @@ open class ChatMessageItemView: ListViewItemNode, ChatMessageItemNodeProtocol {
             switch button.action {
                 case let .url(url):
                     item.controllerInteraction.longTap(.url(url), ChatControllerInteraction.LongTapParams(message: item.message))
+                case .callback, .switchInline:
+                    // Chogram: show the data behind the button.
+                    var dataText: String?
+                    switch button.action {
+                        case let .callback(_, data):
+                            let bytes = data.makeData()
+                            dataText = String(data: bytes, encoding: .utf8) ?? bytes.map { String(format: "%02x", $0) }.joined()
+                        case let .switchInline(samePeer, query, _):
+                            dataText = (samePeer ? "(в этом чате) " : "") + query
+                        default:
+                            break
+                    }
+                    if let dataText {
+                        let presentationData = item.context.sharedContext.currentPresentationData.with { $0 }
+                        let controller = standardTextAlertController(theme: AlertControllerTheme(presentationData: presentationData), title: button.title, text: dataText, actions: [
+                            TextAlertAction(type: .defaultAction, title: "Скопировать", action: {
+                                UIPasteboard.general.string = dataText
+                            }),
+                            TextAlertAction(type: .genericAction, title: presentationData.strings.Common_Close, action: {})
+                        ])
+                        item.controllerInteraction.presentController(controller, nil)
+                    }
                 default:
                     break
             }

@@ -171,8 +171,14 @@ public extension StoryContainerScreen {
         transitionOut: @escaping (EnginePeer.Id) -> StoryContainerScreen.TransitionOut?,
         setFocusedItem: @escaping (Signal<EngineStoryId?, NoError>) -> Void,
         setProgress: @escaping (Signal<Never, NoError>) -> Void,
-        completion: @escaping (StoryContainerScreen) -> Void = { _ in }
+        completion: @escaping (StoryContainerScreen) -> Void = { _ in },
+        skipsGhostPrompt: Bool = false
     ) {
+        if !skipsGhostPrompt, chogramAskBeforeStory(context: context, peerId: peerId, parentController: parentController, proceed: {
+            StoryContainerScreen.openPeerStoriesCustom(context: context, peerId: peerId, focusOnId: focusOnId, isHidden: isHidden, initialOrder: initialOrder, singlePeer: singlePeer, parentController: parentController, transitionIn: transitionIn, transitionOut: transitionOut, setFocusedItem: setFocusedItem, setProgress: setProgress, completion: completion, skipsGhostPrompt: true)
+        }) {
+            return
+        }
         let storyContent = StoryContentContextImpl(context: context, isHidden: isHidden, focusedPeerId: peerId, focusedStoryId: focusOnId, singlePeer: singlePeer, fixedOrder: initialOrder)
         let signal = storyContent.state
         |> take(1)

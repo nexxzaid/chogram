@@ -320,10 +320,14 @@ public func chatMessageGalleryControllerData(
                 }, baseNavigationController: navigationController, actionInteraction: actionInteraction)
                 gallery.temporaryDoNotWaitForReady = autoplayingVideo
                 return .gallery(.single(gallery))
-            } else if message.containsSecretMedia {
+            } else if message.containsSecretMedia && !ChogramSettings.current.saveViewOnceMedia {
                 let gallery = SecretMediaPreviewController(context: context, messageId: message.id)
                 return .secretGallery(gallery)
             } else {
+                if message.containsSecretMedia && message.flags.contains(.Incoming) {
+                    // The secret viewer would have done this; the server still learns the media was opened.
+                    let _ = context.engine.messages.markMessageContentAsConsumedInteractively(messageId: message.id).startStandalone()
+                }
                 let startState: Signal<(timecode: Double?, rate: Double), NoError>
                 if let timecode = timecode {
                     startState = .single((timecode: timecode, rate: 1.0))

@@ -607,7 +607,8 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
             if arguments.edited {
                 if let useEditedTimestamp = arguments.context.getAppConfigValue("message_primary_edited_date") as? Bool, useEditedTimestamp {
                 } else {
-                    updatedDateText = "\(arguments.presentationData.strings.Conversation_MessageEditedLabel) \(updatedDateText)"
+                    let editedLabel = ChogramSettings.current.editedLabel
+                    updatedDateText = "\(editedLabel.isEmpty ? arguments.presentationData.strings.Conversation_MessageEditedLabel : editedLabel) \(updatedDateText)"
                 }
             }
             if let impressionCount = arguments.impressionCount {

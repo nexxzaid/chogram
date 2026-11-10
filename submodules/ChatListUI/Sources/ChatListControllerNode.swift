@@ -883,6 +883,12 @@ public final class ChatListContainerNode: ASDisplayNode, ASGestureRecognizerDele
                 }
             }
             if !availableFilters.contains(where: { $0.id == self.selectedId }) {
+                if !availableFilters.contains(where: { $0.id == .all }), let fallbackId = availableFilters.first?.id {
+                    // The "All chats" tab is hidden: the first folder takes its place.
+                    apply()
+                    self.switchToFilter(id: fallbackId, animated: false)
+                    return
+                }
                 self.switchToFilter(id: .all, completion: {
                     apply()
                 })
@@ -904,6 +910,10 @@ public final class ChatListContainerNode: ASDisplayNode, ASGestureRecognizerDele
     
     public func switchToFilter(id: ChatListFilterTabEntryId, animated: Bool = true, completion: (() -> Void)? = nil) {
         self.onFilterSwitch?()
+        var id = id
+        if id == .all, !self.availableFilters.contains(where: { $0.id == .all }), let fallback = self.availableFilters.first(where: { $0.id != self.selectedId }) {
+            id = fallback.id
+        }
         if id != self.selectedId, let index = self.availableFilters.firstIndex(where: { $0.id == id }) {
             if let itemNode = self.itemNodes[id] {
                 guard let (layout, navigationBarHeight, visualNavigationHeight, originalNavigationHeight, cleanNavigationBarHeight, insets, isReorderingFilters, isEditing, inlineNavigationLocation, inlineNavigationTransitionFraction, storiesInset) = self.validLayout else {
@@ -1176,6 +1186,7 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
     private var tapRecognizer: UITapGestureRecognizer?
     var navigationBar: NavigationBar?
     let navigationBarView = ComponentView<Empty>()
+    var chogramSnowView: ChogramSnowView?
     weak var controller: ChatListControllerImpl?
     
     private var toolbar: ComponentView<Empty>?
@@ -1445,7 +1456,7 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
         let headerContent = self.controller?.updateHeaderContent()
         
         var panels: [HeaderPanelContainerComponent.Panel] = []
-        if let chatListNotice = self.controller?.globalControlPanelsContextState?.chatListNotice {
+        if let chatListNotice = self.controller?.globalControlPanelsContextState?.chatListNotice, !chogramHidesChatListNotice(chatListNotice) {
             panels.append(HeaderPanelContainerComponent.Panel(
                 key: "chatListNotice",
                 orderIndex: 0,
@@ -1785,6 +1796,7 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
                 self.view.addSubview(navigationBarComponentView)
             }
             transition.setFrame(view: navigationBarComponentView, frame: CGRect(origin: CGPoint(), size: navigationBarSize))
+            self.updateChogramSnow(headerSize: navigationBarSize)
             
             return (navigationBarSize.height, 0.0)
         } else {

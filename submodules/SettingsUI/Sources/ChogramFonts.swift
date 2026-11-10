@@ -229,3 +229,8 @@ func chogramCurrentFontLabel() -> String {
     }
     return font.displayName
 }
+
+// Uploaded fonts as (PostScript name, title), for pickers that choose a font by name.
+func chogramCustomFontChoices() -> [(name: String, title: String)] {
+    return chogramStoredFonts().map { (name: $0.postScriptName, title: $0.displayName) }
+}

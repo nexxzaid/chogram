@@ -666,6 +666,30 @@ extension ChatControllerImpl {
                     }
                 }))
             }
+            if options.contains(.deleteGlobally) && !options.contains(.unsendPersonal) && self.chatLocation.peerId != self.context.account.peerId && !messages.isEmpty && messages.values.allSatisfy({ message in
+                guard let message = message?._asMessage() else {
+                    return false
+                }
+                return message.id.namespace == Namespaces.Message.Cloud && !message.effectivelyIncoming(self.context.account.peerId)
+            }) {
+                let keepCopyTitle = "Удалить у всех, но оставить у себя"
+                contextItems.append(.action(ContextMenuActionItem(text: keepCopyTitle, textColor: .destructive, icon: { _ in nil }, action: { [weak self] _, f in
+                    f(.dismissWithoutContent)
+                    guard let self else {
+                        return
+                    }
+                    self.updateChatPresentationInterfaceState(animated: true, interactive: true, { $0.updatedInterfaceState { $0.withoutSelectionState() } })
+                    let _ = self.context.engine.messages.chogramDeleteForEveryoneKeepingCopy(ids: Array(messageIds)).startStandalone()
+                })))
+                items.append(ActionSheetButtonItem(title: keepCopyTitle, color: .destructive, action: { [weak self, weak actionSheet] in
+                    actionSheet?.dismissAnimated()
+                    guard let self else {
+                        return
+                    }
+                    self.updateChatPresentationInterfaceState(animated: true, interactive: true, { $0.updatedInterfaceState { $0.withoutSelectionState() } })
+                    let _ = self.context.engine.messages.chogramDeleteForEveryoneKeepingCopy(ids: Array(messageIds)).startStandalone()
+                }))
+            }
             if options.contains(.deleteLocally) {
                 var localOptionText = self.presentationData.strings.Conversation_DeleteMessagesForMe
                 if self.chatLocation.peerId == self.context.account.peerId {

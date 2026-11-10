@@ -45,7 +45,8 @@ private func chogramCanRetainMessage(_ message: Message, accountPeerId: PeerId) 
     // the one exception: its sender chose that it disappears, so it stays gone. A chat's
     // auto-delete timer is retained like any other deletion.
     if message.containsSecretMedia {
-        return false
+        // With saveViewOnceMedia the view-once media is kept too, its timer attribute included.
+        return ChogramSettings.current.saveViewOnceMedia
     }
     for attribute in message.attributes {
         if attribute is AutoclearTimeoutMessageAttribute || attribute is EphemeralReplacementMessageAttribute {
@@ -57,8 +58,8 @@ private func chogramCanRetainMessage(_ message: Message, accountPeerId: PeerId) 
 
 // Marks the messages the server has deleted as retained instead of removing them, and returns the
 // ids that must be left out of the deletion. Deleting from this device does not come through here.
-func _internal_chogramRetainDeletedMessages(transaction: Transaction, accountPeerId: PeerId, ids: [MessageId]) -> Set<MessageId> {
-    guard ChogramSettings.current.keepDeletedMessages else {
+func _internal_chogramRetainDeletedMessages(transaction: Transaction, accountPeerId: PeerId, ids: [MessageId], force: Bool = false) -> Set<MessageId> {
+    guard force || ChogramSettings.current.keepDeletedMessages else {
         return Set()
     }
 
@@ -75,6 +76,9 @@ func _internal_chogramRetainDeletedMessages(transaction: Transaction, accountPee
             continue
         }
         guard chogramCanRetainMessage(message, accountPeerId: accountPeerId) else {
+            continue
+        }
+        if !force && !ChogramSettings.current.keepDeletedInBotChats && chogramIsBotChat(peers: message.peers, peerId: message.id.peerId) {
             continue
         }
 
@@ -97,6 +101,7 @@ func _internal_chogramRetainDeletedMessages(transaction: Transaction, accountPee
         var state = chogramDeletedMessagesState(transaction: transaction)
         state.entries.append(contentsOf: addedEntries)
         setChogramDeletedMessagesState(transaction: transaction, state: state)
+        chogramNoteRetainedMessages(accountPeerId: accountPeerId, ids: addedEntries.map { MessageId(peerId: PeerId($0.peerId), namespace: Namespaces.Message.Cloud, id: $0.id) })
     }
 
     return retainedIds
@@ -135,4 +140,20 @@ func _internal_chogramDeletedMessages(transaction: Transaction, peerId: PeerId) 
 func _internal_chogramDeletedMessagesCount(transaction: Transaction) -> Int {
     let ids = chogramDeletedMessagesState(transaction: transaction).messageIds
     return ids.filter({ _internal_chogramIsDeletedMessage(transaction: transaction, id: $0) }).count
+}
+
+// Deletes the user's own messages for everyone on the server and keeps the local copies, marked as deleted.
+func _internal_chogramDeleteForEveryoneKeepingCopy(account: Account, ids: [MessageId]) -> Signal<Void, NoError> {
+    return account.postbox.transaction { transaction -> Void in
+        let cloudIds = ids.filter { $0.namespace == Namespaces.Message.Cloud }
+        let retainedIds = _internal_chogramRetainDeletedMessages(transaction: transaction, accountPeerId: account.peerId, ids: cloudIds, force: true)
+        for (peerId, peerIds) in Dictionary(grouping: Array(retainedIds), by: { $0.peerId }) {
+            cloudChatAddRemoveMessagesOperation(transaction: transaction, peerId: peerId, threadId: nil, messageIds: peerIds, type: CloudChatRemoveMessagesType(.forEveryone))
+        }
+        // Messages that cannot be kept are deleted as usual.
+        let otherIds = ids.filter { !retainedIds.contains($0) }
+        if !otherIds.isEmpty {
+            deleteMessagesInteractively(transaction: transaction, stateManager: account.stateManager, postbox: account.postbox, messageIds: otherIds, type: .forEveryone, removeIfPossiblyDelivered: true)
+        }
+    }
 }

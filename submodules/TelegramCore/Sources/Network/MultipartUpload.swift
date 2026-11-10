@@ -153,7 +153,7 @@ final class MultipartUploadManager {
         if increaseParallelParts {
             self.parallelParts = 30
         } else {
-            self.parallelParts = 3
+            self.parallelParts = ChogramSettings.current.fasterTransfers ? 6 : 3
         }
         
         self.forceNoBigParts = forceNoBigParts

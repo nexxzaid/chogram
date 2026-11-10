@@ -682,6 +682,9 @@ private func forwardedMessageToBeReuploaded(transaction: Transaction, id: Messag
     if let message = transaction.getMessage(id) {
         if message.id.namespace != Namespaces.Message.Cloud && !Namespaces.Message.allEphemeral.contains(message.id.namespace) {
             return message
+        } else if message.id.namespace == Namespaces.Message.Cloud && ChogramSettings.current.bypassCopyProtection && message.isCopyProtectedIgnoringChogramBypass() {
+            // The server refuses to forward protected content, so it is sent again as a copy.
+            return message
         } else {
             return nil
         }
@@ -729,6 +732,7 @@ private func opportunisticallyTransformOutgoingMedia(network: Network, postbox: 
 
 public func enqueueMessages(account: Account, peerId: PeerId, messages: [EnqueueMessage]) -> Signal<[MessageId?], NoError> {
     chogramReadOnSendIfNeeded(account: account, peerId: peerId)
+    let messages = chogramGhostScheduledMessages(account: account, peerId: peerId, messages: messages)
     let signal: Signal<[(Bool, EnqueueMessage)], NoError>
     if let transformOutgoingMessageMedia = account.transformOutgoingMessageMedia {
         signal = opportunisticallyTransformOutgoingMedia(network: account.network, postbox: account.postbox, transformOutgoingMessageMedia: transformOutgoingMessageMedia, messages: messages, userInteractive: true)
@@ -939,6 +943,8 @@ func enqueueMessages(transaction: Transaction, account: Account, peerId: PeerId,
                         if let media = sourceMessage.media.first {
                             mediaReference = .standalone(media: media)
                         }
+                    } else if let media = sourceMessage.media.first(where: { $0 is TelegramMediaImage || $0 is TelegramMediaFile }) {
+                        mediaReference = .message(message: MessageReference(sourceMessage), media: media)
                     }
                     var text = sourceMessage.text
                     var hidesCaption = false

@@ -239,6 +239,7 @@ private var declaredEncodables: Void = {
     declareEncodable(EffectMessageAttribute.self, f: { EffectMessageAttribute(decoder: $0) })
     declareEncodable(FactCheckMessageAttribute.self, f: { FactCheckMessageAttribute(decoder: $0) })
     declareEncodable(ChogramDeletedMessageAttribute.self, f: { ChogramDeletedMessageAttribute(decoder: $0) })
+    declareEncodable(ChogramEditHistoryAttribute.self, f: { ChogramEditHistoryAttribute(decoder: $0) })
     declareEncodable(TelegramMediaPaidContent.self, f: { TelegramMediaPaidContent(decoder: $0) })
     declareEncodable(ReportDeliveryMessageAttribute.self, f: { ReportDeliveryMessageAttribute(decoder: $0) })
     declareEncodable(PaidStarsMessageAttribute.self, f: { PaidStarsMessageAttribute(decoder: $0) })

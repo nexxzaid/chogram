@@ -252,7 +252,7 @@ public final class ChatAvatarNavigationNode: ASDisplayNode {
                 
                 if isKnown {
                     let photo = personalPhoto ?? profilePhoto
-                    if let photo = photo, !photo.videoRepresentations.isEmpty || photo.emojiMarkup != nil {
+                    if let photo = photo, !ChogramSettings.current.disableVideoAvatars, !photo.videoRepresentations.isEmpty || photo.emojiMarkup != nil {
                         let videoNode: AvatarVideoNode
                         if let current = strongSelf.avatarVideoNode {
                             videoNode = current
@@ -403,7 +403,7 @@ public final class ChatAvatarNavigationNode: ASDisplayNode {
         self.avatarVideoNode?.updateVisibility(isVisible)
       
         if let videoNode = self.avatarVideoNode {
-            videoNode.updateLayout(size: self.avatarNode.frame.size, cornerRadius: self.avatarNode.frame.size.width / 2.0, transition: .immediate)
+            videoNode.updateLayout(size: self.avatarNode.frame.size, cornerRadius: chogramAvatarCornerRadius(size: self.avatarNode.frame.size.height), transition: .immediate)
             videoNode.frame = self.avatarNode.bounds
         }
     }

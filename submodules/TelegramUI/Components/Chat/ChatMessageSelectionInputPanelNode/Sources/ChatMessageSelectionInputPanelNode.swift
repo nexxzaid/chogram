@@ -182,6 +182,7 @@ public final class ChatMessageSelectionInputPanelNode: ChatInputPanelNode {
     private let reportButton: GlassButtonView
     private let forwardButton: GlassButtonView
     private let shareButton: GlassButtonView
+    private let imageButton: GlassButtonView
     private let tagButton: GlassButtonView
     private let tagEditButton: GlassButtonView
     
@@ -230,6 +231,11 @@ public final class ChatMessageSelectionInputPanelNode: ChatInputPanelNode {
         self.shareButton.isAccessibilityElement = true
         self.shareButton.accessibilityLabel = strings.VoiceOver_MessageContextShare
         
+        self.imageButton = GlassButtonView()
+        self.imageButton.icon = "Chat/Context Menu/Image"
+        self.imageButton.isAccessibilityElement = true
+        self.imageButton.accessibilityLabel = "Картинкой"
+        
         self.tagButton = GlassButtonView()
         self.tagButton.icon = "Chat/Input/Accessory Panels/TagIcon"
         self.tagButton.isAccessibilityElement = true
@@ -248,6 +254,7 @@ public final class ChatMessageSelectionInputPanelNode: ChatInputPanelNode {
         self.view.addSubview(self.reportButton)
         self.view.addSubview(self.forwardButton)
         self.view.addSubview(self.shareButton)
+        self.view.addSubview(self.imageButton)
         self.view.addSubview(self.tagButton)
         self.view.addSubview(self.tagEditButton)
         
@@ -260,6 +267,7 @@ public final class ChatMessageSelectionInputPanelNode: ChatInputPanelNode {
         self.reportButton.button.addTarget(self, action: #selector(self.reportButtonPressed), for: .touchUpInside)
         self.forwardButton.button.addTarget(self, action: #selector(self.forwardButtonPressed), for: .touchUpInside)
         self.shareButton.button.addTarget(self, action: #selector(self.shareButtonPressed), for: .touchUpInside)
+        self.imageButton.button.addTarget(self, action: #selector(self.imageButtonPressed), for: .touchUpInside)
         self.tagButton.button.addTarget(self, action: #selector(self.tagButtonPressed), for: .touchUpInside)
         self.tagEditButton.button.addTarget(self, action: #selector(self.tagButtonPressed), for: .touchUpInside)
     }
@@ -324,6 +332,16 @@ public final class ChatMessageSelectionInputPanelNode: ChatInputPanelNode {
         } else if !self.shareButton.isImplicitlyDisabled {
             self.interfaceInteraction?.shareSelectedMessages()
         }
+    }
+    
+    @objc private func imageButtonPressed() {
+        if self.selectedMessages.isEmpty {
+            return
+        }
+        if let actions = self.actions, actions.isCopyProtected {
+            return
+        }
+        NotificationCenter.default.post(name: Notification.Name("chogram.saveAsImage"), object: nil, userInfo: ["ids": Array(self.selectedMessages), "fromSelection": true])
     }
     
     @objc private func tagButtonPressed() {
@@ -526,7 +544,7 @@ public final class ChatMessageSelectionInputPanelNode: ChatInputPanelNode {
             tagButton = self.tagEditButton
         }
         
-        let buttons: [GlassButtonView]
+        var buttons: [GlassButtonView]
         if self.reportButton.isHidden {
             if let tagButton {
                 buttons = [
@@ -576,6 +594,12 @@ public final class ChatMessageSelectionInputPanelNode: ChatInputPanelNode {
                     self.forwardButton
                 ]
             }
+        }
+        
+        let showImageButton = !self.peerMedia && ChogramMessageMenuItem.isVisible(.saveAsImage)
+        self.imageButton.isHidden = !showImageButton
+        if showImageButton, let shareIndex = buttons.firstIndex(where: { $0 === self.shareButton }) {
+            buttons.insert(self.imageButton, at: shareIndex)
         }
         
         let buttonSize = CGSize(width: 40.0, height: 40.0)

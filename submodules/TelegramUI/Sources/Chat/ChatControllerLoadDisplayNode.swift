@@ -677,6 +677,7 @@ extension ChatControllerImpl {
     }
     
     func loadDisplayNodeImpl() {
+        self.chogramSetupSaveAsImage()
         self.navigationBar?.backPressed = { [weak self] in
             guard let self else {
                 return
@@ -5106,6 +5107,9 @@ extension ChatControllerImpl {
                     |> deliverOnMainQueue).startStrict(next: { [weak self] activities in
                         if let strongSelf = self {
                             let displayActivities = activities.filter({
+                                if chogramShouldHideBlockedActivity(context: strongSelf.context, chatPeerId: peerId, senderId: $0.0.id) {
+                                    return false
+                                }
                                 switch $0.1 {
                                     case .speakingInGroupCall, .interactingWithEmoji:
                                         return false

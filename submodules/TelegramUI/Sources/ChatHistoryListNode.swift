@@ -703,6 +703,7 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
         }
     }
     
+    private var chogramHiddenMessagesObserver: NSObjectProtocol?
     private let pendingRemovedMessagesPromise = ValuePromise<Set<MessageId>>(Set())
     var pendingRemovedMessages: Set<MessageId> = Set() {
         didSet {
@@ -1422,9 +1423,19 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
         self.listView.scrollGestureHostView.addGestureRecognizer(selectionRecognizer)
 
         self.loadNextGenericReactionEffect(context: context)
+        
+        self.chogramHiddenMessagesObserver = NotificationCenter.default.addObserver(forName: ChogramHiddenMessages.didChangeNotification, object: nil, queue: .main, using: { [weak self] _ in
+            guard let self else {
+                return
+            }
+            self.pendingRemovedMessagesPromise.set(self.pendingRemovedMessages)
+        })
     }
     
     deinit {
+        if let observer = self.chogramHiddenMessagesObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
         self.historyDisposable.dispose()
         self.readHistoryDisposable.dispose()
         self.interactiveReadActionDisposable?.dispose()
@@ -1993,7 +2004,7 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
         }
         
         let recommendedChannels: Signal<RecommendedChannels?, NoError>
-        if let peerId = self.chatLocation.peerId, peerId.namespace == Namespaces.Peer.CloudChannel {
+        if let peerId = self.chatLocation.peerId, peerId.namespace == Namespaces.Peer.CloudChannel, !ChogramSettings.current.hideSimilarChannels {
             recommendedChannels = self.context.engine.peers.recommendedChannels(peerId: peerId)
         } else {
             recommendedChannels = .single(nil)
@@ -2303,7 +2314,7 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
                             }
                         }
                     } else if case let .cachedPeerData(_, cachedData) = entry, let cachedUserData = cachedData as? CachedUserData {
-                        if !isCopyProtectionEnabled {
+                        if !isCopyProtectionEnabled && !ChogramSettings.current.bypassCopyProtection {
                             isCopyProtectionEnabled = cachedUserData.flags.contains(.copyProtectionEnabled) || cachedUserData.flags.contains(.myCopyProtectionEnabled)
                         }
                     }

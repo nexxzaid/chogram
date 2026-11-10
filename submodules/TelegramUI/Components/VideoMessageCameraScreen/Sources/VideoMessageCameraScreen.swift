@@ -329,6 +329,10 @@ private final class VideoMessageCameraScreenComponent: CombinedComponent {
             
             let isFrontCamera = controller.cameraState.position == .back
             camera.togglePosition()
+            
+            var chogramSettings = ChogramSettings.current
+            chogramSettings.lastRoundVideoCameraIsBack = !isFrontCamera
+            chogramSettings.save()
                                     
             self.hapticFeedback.impact(.veryLight)
             
@@ -995,7 +999,15 @@ public class VideoMessageCameraScreen: ViewController {
             self.previewContainerView.addSubview(self.previewContainerContentView)
                         
             let isDualCameraEnabled = cameraImpl.isDualCameraSupported(forRoundVideo: true)
-            let isFrontPosition = "".isEmpty
+            let isFrontPosition: Bool
+            switch ChogramSettings.current.roundVideoCamera {
+            case .front:
+                isFrontPosition = true
+            case .back:
+                isFrontPosition = false
+            case .last:
+                isFrontPosition = !ChogramSettings.current.lastRoundVideoCameraIsBack
+            }
             
             self.mainPreviewView = cameraImpl.makeCameraSimplePreviewView(frame: .zero, main: true, roundVideo: true)
             self.additionalPreviewView = cameraImpl.makeCameraSimplePreviewView(frame: .zero, main: false, roundVideo: true)

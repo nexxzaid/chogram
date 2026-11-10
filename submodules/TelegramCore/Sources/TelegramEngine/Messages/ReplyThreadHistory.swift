@@ -477,7 +477,7 @@ private class ReplyThreadHistoryContextImpl {
                 }
             }
 
-            if ChogramSettings.current.hidesReadReceipts {
+            if chogramHidesReadReceipts(accountPeerId: strongSelf.account.peerId) {
                 return
             }
 

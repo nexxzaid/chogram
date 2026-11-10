@@ -1192,6 +1192,7 @@ public final class AccountStateManager {
                             if !events.sentScheduledMessageIds.isEmpty {
                                 strongSelf.sentScheduledMessageIdsPipe.putNext(events.sentScheduledMessageIds)
                             }
+                            chogramKeepMedia(postbox: strongSelf.postbox, accountPeerId: strongSelf.accountPeerId, incomingIds: events.addedIncomingMessageIds)
                             if !events.reportMessageDelivery.isEmpty {
                                 strongSelf.reportMessageDeliveryDisposable.add(_internal_reportMessageDelivery(postbox: strongSelf.postbox, network: strongSelf.network, messageIds: Array(events.reportMessageDelivery), fromPushNotification: false).start())
                             }

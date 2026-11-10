@@ -968,8 +968,8 @@ extension ChatControllerImpl {
                             }
                         }
                         if let cachedUserData = peerView.cachedData as? CachedUserData {
-                            copyProtectionEnabled = cachedUserData.flags.contains(.copyProtectionEnabled) || cachedUserData.flags.contains(.myCopyProtectionEnabled)
-                            myCopyProtectionEnabled = cachedUserData.flags.contains(.myCopyProtectionEnabled)
+                            copyProtectionEnabled = (cachedUserData.flags.contains(.copyProtectionEnabled) || cachedUserData.flags.contains(.myCopyProtectionEnabled)) && !ChogramSettings.current.bypassCopyProtection
+                            myCopyProtectionEnabled = cachedUserData.flags.contains(.myCopyProtectionEnabled) && !ChogramSettings.current.bypassCopyProtection
                         } else {
                             copyProtectionEnabled = peer.isCopyProtectionEnabled
                         }

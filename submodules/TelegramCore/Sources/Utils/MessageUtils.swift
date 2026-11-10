@@ -536,6 +536,13 @@ public extension Message {
     }
     
     func isCopyProtected() -> Bool {
+        if ChogramSettings.current.bypassCopyProtection {
+            return false
+        }
+        return self.isCopyProtectedIgnoringChogramBypass()
+    }
+    
+    func isCopyProtectedIgnoringChogramBypass() -> Bool {
         if self.flags.contains(.CopyProtected) {
             return true
         } else if let group = self.peers[self.id.peerId] as? TelegramGroup, group.flags.contains(.copyProtectionEnabled) {

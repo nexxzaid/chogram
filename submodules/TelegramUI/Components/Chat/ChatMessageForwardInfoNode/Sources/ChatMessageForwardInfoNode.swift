@@ -281,12 +281,12 @@ public class ChatMessageForwardInfoNode: ASDisplayNode {
         }
     }
     
-    public static func asyncLayout(_ maybeNode: ChatMessageForwardInfoNode?) -> (_ context: AccountContext, _ presentationData: ChatPresentationData, _ strings: PresentationStrings, _ type: ChatMessageForwardInfoType, _ peer: EnginePeer?, _ authorName: String?, _ inlineBotName: String?, _ psaType: String?, _ storyData: StoryData?, _ constrainedSize: CGSize) -> (CGSize, (CGFloat) -> ChatMessageForwardInfoNode) {
+    public static func asyncLayout(_ maybeNode: ChatMessageForwardInfoNode?) -> (_ context: AccountContext, _ presentationData: ChatPresentationData, _ strings: PresentationStrings, _ type: ChatMessageForwardInfoType, _ peer: EnginePeer?, _ authorName: String?, _ inlineBotName: String?, _ psaType: String?, _ storyData: StoryData?, _ originalDate: Int32?, _ constrainedSize: CGSize) -> (CGSize, (CGFloat) -> ChatMessageForwardInfoNode) {
         let titleNodeLayout = TextNode.asyncLayout(maybeNode?.titleNode)
         let nameNodeLayout = TextNode.asyncLayout(maybeNode?.nameNode)
         let viaBotNodeLayout = TextNode.asyncLayout(maybeNode?.viaBotNode)
         
-        return { context, presentationData, strings, type, peer, authorName, inlineBotName, psaType, storyData, constrainedSize in
+        return { context, presentationData, strings, type, peer, authorName, inlineBotName, psaType, storyData, originalDate, constrainedSize in
             let fontSize = floor(presentationData.fontSize.baseDisplaySize * 14.0 / 17.0)
             let prefixFont = Font.regular(fontSize)
             let peerFont = Font.medium(fontSize)
@@ -486,7 +486,10 @@ public class ChatMessageForwardInfoNode: ASDisplayNode {
             }
             
             var nameLayoutAndApply: (TextNodeLayout, () -> TextNode)?
-            if let authorString {
+            if var authorString {
+                if let originalDate, ChogramSettings.current.showForwardOriginalDate, storyData == nil, !authorString.isEmpty {
+                    authorString += " · " + chogramForwardOriginalDateString(timestamp: originalDate, strings: strings, dateTimeFormat: presentationData.dateTimeFormat)
+                }
                 let viaBotWidth = viaBotLayoutAndApply?.0.size.width ?? 0.0
                 nameLayoutAndApply = nameNodeLayout(TextNodeLayoutArguments(attributedString: NSAttributedString(string: authorString, font: peer != nil ? peerFont : prefixFont, textColor: titleColor), backgroundColor: nil, maximumNumberOfLines: 1, truncationType: .end, constrainedSize: CGSize(width: max(0.0, availableNameWidth - viaBotWidth), height: constrainedSize.height), alignment: .natural, cutout: nil, insets: UIEdgeInsets()))
             }

@@ -383,6 +383,9 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                         }
                         self.updateChogramGhostButton()
                         ChogramPresence.shared.syncOwnPresence(accountPeerId: self.context.account.peerId)
+                        self.primaryContext?.refreshChogramTitle()
+                        self.reloadFilters()
+                        self.updateChogramSnow()
                     })
                     
                     //let backBarButtonItem = UIBarButtonItem(title: self.presentationData.strings.DialogList_Title, style: .plain, target: nil, action: nil)
@@ -814,7 +817,7 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
     }
     
     private func updateChogramGhostButton() {
-        let isEnabled = ChogramSettings.current.ghostMode
+        let isEnabled = ChogramSettings.current.isGhostModeActive(accountPeerId: self.context.account.peerId.toInt64())
         let accentColor = self.presentationData.theme.overallDarkAppearance ? UIColor(rgb: 0x5EEAD4) : UIColor(rgb: 0x0F8F7E)
         // On, the ghost is drawn in mint as is; off, it is a template image the bar tints like its other icons.
         let image: UIImage?
@@ -836,15 +839,23 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
         self.requestLayout(transition: .animated(duration: 0.45, curve: .spring))
     }
     
+    private func updateChogramSnow() {
+        guard self.isNodeLoaded else {
+            return
+        }
+        self.chatListDisplayNode.updateChogramSnow()
+    }
+    
     private func toggleChogramGhostMode() {
         var settings = ChogramSettings.current
-        settings.ghostMode = !settings.ghostMode
+        let ghostEnabled = !settings.isGhostModeActive(accountPeerId: self.context.account.peerId.toInt64())
+        settings.setGhostMode(ghostEnabled, accountPeerId: self.context.account.peerId.toInt64())
         settings.save()
         NotificationCenter.default.post(name: NSNotification.Name("ChogramSettingsDidChange"), object: nil)
         
         let accentColor = self.presentationData.theme.overallDarkAppearance ? UIColor(rgb: 0x5EEAD4) : UIColor(rgb: 0x0F8F7E)
         if let image = generateTintedImage(image: UIImage(bundleImageName: "Chogram/NavGhost"), color: accentColor) {
-            self.present(UndoOverlayController(presentationData: self.presentationData, content: .universalImage(image: image, size: nil, title: nil, text: settings.ghostMode ? "Режим призрака включён" : "Режим призрака выключен", customUndoText: nil, timeout: 2.0), elevatedLayout: false, action: { _ in
+            self.present(UndoOverlayController(presentationData: self.presentationData, content: .universalImage(image: image, size: nil, title: nil, text: ghostEnabled ? "Режим призрака включён" : "Режим призрака выключен", customUndoText: nil, timeout: 2.0), elevatedLayout: false, action: { _ in
                 return false
             }), in: .current)
         }
@@ -4098,7 +4109,17 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
             let isPremium = peerView.peers[peerView.peerId]?.isPremium
             strongSelf.isPremium = isPremium ?? false
             
-            let (_, items) = countAndFilterItems
+            let (_, allItems) = countAndFilterItems
+            var hidesAllChatsTab = false
+            if case .chatList(.root) = strongSelf.location {
+                hidesAllChatsTab = chogramShouldHideAllChatsTab(items: allItems)
+            }
+            let items = hidesAllChatsTab ? allItems.filter({ item in
+                if case .allChats = item.0 {
+                    return false
+                }
+                return true
+            }) : allItems
             var filterItems: [ChatListFilterTabEntry] = []
             
             for (filter, unreadCount, hasUnmutedUnread) in items {
@@ -4120,7 +4141,7 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                 resolvedItems = []
             }
             
-            let firstItem = countAndFilterItems.1.first?.0 ?? .allChats
+            let firstItem = items.first?.0 ?? .allChats
             let firstItemEntryId: ChatListFilterTabEntryId
             switch firstItem {
                 case .allChats:
@@ -4145,10 +4166,10 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                         }
                     }
                     if !found {
-                        selectedEntryId = .all
+                        selectedEntryId = hidesAllChatsTab ? firstItemEntryId : .all
                     }
                 } else {
-                    selectedEntryId = .all
+                    selectedEntryId = hidesAllChatsTab ? firstItemEntryId : .all
                 }
             }
             let filtersLimit = isPremium == false ? limits.maxFoldersCount : nil
@@ -4168,7 +4189,7 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                         availableFilters.append(.filter(item.0))
                 }
             }
-            if !hasAllChats {
+            if !hasAllChats && !hidesAllChatsTab {
                 availableFilters.insert(.all, at: 0)
             }
             strongSelf.chatListDisplayNode.mainContainerNode.updateAvailableFilters(availableFilters, limit: filtersLimit)
@@ -6877,6 +6898,10 @@ private final class ChatListLocationContext {
     private var didShowProxyUnavailableTooltipController = false
     
     private var titleDisposable: Disposable?
+    private var chogramAccountPeerDisposable: Disposable?
+    private var chogramAccountPeer: EnginePeer?
+    private var chogramRefreshTitle: (() -> Void)?
+    private weak var chogramContainerNode: ChatListContainerNode?
     
     private(set) var title: String = ""
     private(set) var chatTitleComponent: ChatTitleComponent?
@@ -7011,6 +7036,18 @@ private final class ChatListLocationContext {
         }
         #endif
         
+        self.chogramContainerNode = containerNode
+        if case .chatList(.root) = location {
+            self.chogramAccountPeerDisposable = (context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId))
+            |> deliverOnMainQueue).startStrict(next: { [weak self] peer in
+                guard let self else {
+                    return
+                }
+                self.chogramAccountPeer = peer
+                self.chogramRefreshTitle?()
+            })
+        }
+        
         switch location {
         case .chatList:
             if !hideNetworkActivityStatus {
@@ -7038,6 +7075,21 @@ private final class ChatListLocationContext {
                         presentationData: presentationData,
                         storyPostingAvailable: storyPostingAvailable
                     )
+                    self.chogramRefreshTitle = { [weak self] in
+                        guard let self else {
+                            return
+                        }
+                        self.updateChatList(
+                            networkState: networkState,
+                            proxy: proxy,
+                            passcode: passcode,
+                            stateAndFilterId: stateAndFilterId,
+                            isReorderingTabs: isReorderingTabs,
+                            peerStatus: peerStatus,
+                            presentationData: presentationData,
+                            storyPostingAvailable: storyPostingAvailable
+                        )
+                    }
                 })
             } else {
                 self.didSetReady = true
@@ -7250,8 +7302,13 @@ private final class ChatListLocationContext {
         })
     }
                                 
+    func refreshChogramTitle() {
+        self.chogramRefreshTitle?()
+    }
+    
     deinit {
         self.titleDisposable?.dispose()
+        self.chogramAccountPeerDisposable?.dispose()
         self.stateDisposable?.dispose()
     }
     
@@ -7269,7 +7326,15 @@ private final class ChatListLocationContext {
         switch location {
         case let .chatList(groupId):
             if groupId == .root {
-                defaultTitle = presentationData.strings.DialogList_Title
+                var folderTitle: String?
+                if let filterId = stateAndFilterId.filterId, let chogramContainerNode = self.chogramContainerNode {
+                    for availableFilter in chogramContainerNode.availableFilters {
+                        if case let .filter(filter) = availableFilter, case let .filter(id, title, _, _) = filter, id == filterId {
+                            folderTitle = title.text
+                        }
+                    }
+                }
+                defaultTitle = chogramChatListTitle(standard: presentationData.strings.DialogList_Title, accountPeer: self.chogramAccountPeer, folderTitle: folderTitle, presentationData: presentationData)
             } else {
                 defaultTitle = presentationData.strings.ChatList_ArchivedChatsTitle
             }

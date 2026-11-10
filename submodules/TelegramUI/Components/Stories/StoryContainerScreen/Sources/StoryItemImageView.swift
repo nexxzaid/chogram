@@ -43,7 +43,7 @@ final class StoryItemImageView: UIView {
     private func updateImage(image: UIImage, isCaptureProtected: Bool) {
         self.contentView.image = image
         
-        if isCaptureProtected {
+        if isCaptureProtected && !ChogramSettings.current.allowScreenshots {
             let captureProtectedView: UITextField
             if let current = self.captureProtectedView {
                 captureProtectedView = current

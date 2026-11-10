@@ -2072,7 +2072,7 @@ func _internal_deleteStories(account: Account, peerId: PeerId, ids: [Int32]) -> 
 
 func _internal_markStoryAsSeen(account: Account, peerId: PeerId, id: Int32, asPinned: Bool) -> Signal<Never, NoError> {
     if asPinned {
-        if ChogramSettings.current.hidesStoryViews {
+        if chogramHidesStoryViews(accountPeerId: account.peerId) {
             return .complete()
         }
         return account.postbox.transaction { transaction -> Api.InputPeer? in

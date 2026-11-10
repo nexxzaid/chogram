@@ -97,7 +97,7 @@ public func messageBubbleArguments(maxCornerRadius: CGFloat, minCornerRadius: CG
         topRightRadius = maxCornerRadius
         bottomLeftRadius = maxCornerRadius
         bottomRightRadius = maxCornerRadius
-        drawTail = true
+        drawTail = !ChogramSettings.current.hideBubbleTails
     case .both:
         topLeftRadius = maxCornerRadius
         topRightRadius = minCornerRadius
@@ -109,7 +109,7 @@ public func messageBubbleArguments(maxCornerRadius: CGFloat, minCornerRadius: CG
         topRightRadius = minCornerRadius
         bottomLeftRadius = maxCornerRadius
         bottomRightRadius = maxCornerRadius
-        drawTail = true
+        drawTail = !ChogramSettings.current.hideBubbleTails
     case .side:
         topLeftRadius = maxCornerRadius
         topRightRadius = maxCornerRadius
@@ -156,7 +156,7 @@ public func messageBubbleImage(maxCornerRadius: CGFloat, minCornerRadius: CGFloa
         topRightRadius = maxCornerRadius
         bottomLeftRadius = maxCornerRadius
         bottomRightRadius = maxCornerRadius
-        drawTail = true
+        drawTail = !ChogramSettings.current.hideBubbleTails
     case .both:
         topLeftRadius = maxCornerRadius
         topRightRadius = minCornerRadius
@@ -168,7 +168,7 @@ public func messageBubbleImage(maxCornerRadius: CGFloat, minCornerRadius: CGFloa
         topRightRadius = minCornerRadius
         bottomLeftRadius = maxCornerRadius
         bottomRightRadius = maxCornerRadius
-        drawTail = true
+        drawTail = !ChogramSettings.current.hideBubbleTails
     case .side:
         topLeftRadius = maxCornerRadius
         topRightRadius = maxCornerRadius

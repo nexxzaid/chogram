@@ -182,57 +182,26 @@ extension ChatControllerImpl {
                     inputPanelFrame: (currentInputPanelFrame, self.chatDisplayNode.inputNode != nil),
                     chatNode: self.chatDisplayNode.historyNode,
                     completion: { [weak self] message, silentPosting, scheduleTime, repeatPeriod in
-                        guard let self, let videoController = self.videoRecorderValue else {
+                        guard let self, self.videoRecorderValue != nil else {
                             return
                         }
                         
-                        guard var message else {
+                        guard let message else {
                             self.recorderFeedback?.error()
                             self.recorderFeedback = nil
                             self.videoRecorder.set(.single(nil))
                             return
                         }
                         
-                        let replyMessageSubject = self.presentationInterfaceState.interfaceState.replyMessageSubject
-                        let correlationId = Int64.random(in: 0 ..< Int64.max)
-                        message = message
-                            .withUpdatedReplyToMessageId(replyMessageSubject?.subjectModel)
-                            .withUpdatedCorrelationId(correlationId)
-                        
-                        var shouldAnimateMessageTransition = self.chatDisplayNode.shouldAnimateMessageTransition
-                        if self.chatLocation.threadId == nil, let channel = self.presentationInterfaceState.renderedPeer?.peer as? TelegramChannel, channel.isMonoForum, let linkedMonoforumId = channel.linkedMonoforumId, let mainChannel = self.presentationInterfaceState.renderedPeer?.peers[linkedMonoforumId] as? TelegramChannel, mainChannel.hasPermission(.manageDirect) {
-                            shouldAnimateMessageTransition = false
-                        }
-                        
-                        var usedCorrelationId = false
-                        if scheduleTime == nil, shouldAnimateMessageTransition, let extractedView = videoController.extractVideoSnapshot() {
-                            usedCorrelationId = true
-                            self.chatDisplayNode.messageTransitionNode.add(correlationId: correlationId, source:  .videoMessage(ChatMessageTransitionNodeImpl.Source.VideoMessage(view: extractedView)), initiated: { [weak videoController, weak self] in
-                                videoController?.hideVideoSnapshot()
-                                guard let self else {
-                                    return
-                                }
-                                self.videoRecorder.set(.single(nil))
+                        if ChogramSettings.current.confirmSendRoundVideos {
+                            self.chogramConfirmSendRoundVideo(send: { [weak self] in
+                                self?.sendRecordedRoundVideoMessage(message, silentPosting: silentPosting, scheduleTime: scheduleTime, repeatPeriod: repeatPeriod)
+                            }, discard: { [weak self] in
+                                self?.videoRecorder.set(.single(nil))
                             })
-                        } else {
-                            self.videoRecorder.set(.single(nil))
+                            return
                         }
-                        
-                        self.chatDisplayNode.setupSendActionOnViewUpdate({ [weak self] in
-                            if let self {
-                                self.chatDisplayNode.collapseInput()
-                                
-                                self.updateChatPresentationInterfaceState(animated: true, interactive: false, {
-                                    $0.updatedInterfaceState { $0.withUpdatedReplyMessageSubject(nil).withUpdatedSendMessageEffect(nil).withUpdatedMediaDraftState(nil).withUpdatedPostSuggestionState(nil) }
-                                })
-                            }
-                        }, usedCorrelationId ? correlationId : nil)
-                        
-                        let messages = [message]
-                        let effectiveSilentPosting = silentPosting ?? self.presentationInterfaceState.interfaceState.silentPosting
-                        let transformedMessages = self.transformEnqueueMessages(messages, silentPosting: effectiveSilentPosting, scheduleTime: scheduleTime, repeatPeriod: repeatPeriod)
-                        
-                        self.sendMessages(transformedMessages)
+                        self.sendRecordedRoundVideoMessage(message, silentPosting: silentPosting, scheduleTime: scheduleTime, repeatPeriod: repeatPeriod)
                     }
                 )
                 controller.onResume = { [weak self] in
@@ -244,6 +213,53 @@ extension ChatControllerImpl {
                 self.videoRecorder.set(.single(controller))
             }
         }
+    }
+    
+    func sendRecordedRoundVideoMessage(_ message: EnqueueMessage, silentPosting: Bool?, scheduleTime: Int32?, repeatPeriod: Int32?) {
+        guard let videoController = self.videoRecorderValue else {
+            return
+        }
+        
+        let replyMessageSubject = self.presentationInterfaceState.interfaceState.replyMessageSubject
+        let correlationId = Int64.random(in: 0 ..< Int64.max)
+        let message = message
+            .withUpdatedReplyToMessageId(replyMessageSubject?.subjectModel)
+            .withUpdatedCorrelationId(correlationId)
+        
+        var shouldAnimateMessageTransition = self.chatDisplayNode.shouldAnimateMessageTransition
+        if self.chatLocation.threadId == nil, let channel = self.presentationInterfaceState.renderedPeer?.peer as? TelegramChannel, channel.isMonoForum, let linkedMonoforumId = channel.linkedMonoforumId, let mainChannel = self.presentationInterfaceState.renderedPeer?.peers[linkedMonoforumId] as? TelegramChannel, mainChannel.hasPermission(.manageDirect) {
+            shouldAnimateMessageTransition = false
+        }
+                
+        var usedCorrelationId = false
+        if scheduleTime == nil, shouldAnimateMessageTransition, let extractedView = videoController.extractVideoSnapshot() {
+            usedCorrelationId = true
+            self.chatDisplayNode.messageTransitionNode.add(correlationId: correlationId, source:  .videoMessage(ChatMessageTransitionNodeImpl.Source.VideoMessage(view: extractedView)), initiated: { [weak videoController, weak self] in
+                videoController?.hideVideoSnapshot()
+                guard let self else {
+                    return
+                }
+                self.videoRecorder.set(.single(nil))
+            })
+        } else {
+            self.videoRecorder.set(.single(nil))
+        }
+                
+        self.chatDisplayNode.setupSendActionOnViewUpdate({ [weak self] in
+            if let self {
+                self.chatDisplayNode.collapseInput()
+                        
+                self.updateChatPresentationInterfaceState(animated: true, interactive: false, {
+                    $0.updatedInterfaceState { $0.withUpdatedReplyMessageSubject(nil).withUpdatedSendMessageEffect(nil).withUpdatedMediaDraftState(nil).withUpdatedPostSuggestionState(nil) }
+                })
+            }
+        }, usedCorrelationId ? correlationId : nil)
+                
+        let messages = [message]
+        let effectiveSilentPosting = silentPosting ?? self.presentationInterfaceState.interfaceState.silentPosting
+        let transformedMessages = self.transformEnqueueMessages(messages, silentPosting: effectiveSilentPosting, scheduleTime: scheduleTime, repeatPeriod: repeatPeriod)
+        
+        self.sendMessages(transformedMessages)
     }
     
     func dismissMediaRecorder(_ action: ChatFinishMediaRecordingAction) {
@@ -259,6 +275,12 @@ extension ChatControllerImpl {
         
         var sendImmediately = false
         if let _ = self.presentationInterfaceState.sendPaidMessageStars, case .send = action {
+            updatedAction = .preview
+            sendImmediately = true
+        }
+        
+        // Release goes through the draft so the confirmation in sendMediaRecording can keep the recording on cancel.
+        if case let .send(viewOnce) = action, !viewOnce, case .send = updatedAction, self.audioRecorderValue != nil, ChogramSettings.current.confirmSendVoice {
             updatedAction = .preview
             sendImmediately = true
         }
@@ -685,11 +707,18 @@ extension ChatControllerImpl {
         repeatPeriod: Int32? = nil,
         viewOnce: Bool = false,
         messageEffect: ChatSendMessageEffect? = nil,
-        postpone: Bool = false
+        postpone: Bool = false,
+        confirmed: Bool = false
     ) {
         self.chatDisplayNode.updateRecordedMediaDeleted(false)
         
         guard let recordedMediaPreview = self.presentationInterfaceState.interfaceState.mediaDraftState else {
+            return
+        }
+        
+        if !confirmed, self.chogramConfirmSendRecording(draft: recordedMediaPreview, send: { [weak self] in
+            self?.sendMediaRecording(silentPosting: silentPosting, scheduleTime: scheduleTime, repeatPeriod: repeatPeriod, viewOnce: viewOnce, messageEffect: messageEffect, postpone: postpone, confirmed: true)
+        }) {
             return
         }
         

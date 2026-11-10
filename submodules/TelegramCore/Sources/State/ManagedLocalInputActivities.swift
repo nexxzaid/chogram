@@ -175,7 +175,7 @@ private func requestActivity(postbox: Postbox, network: Network, accountPeerId: 
                 }
             }
             
-            if ChogramSettings.current.hidesTyping {
+            if chogramHidesTyping(accountPeerId: accountPeerId) {
                 return .complete()
             }
             

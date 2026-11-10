@@ -585,7 +585,7 @@ private final class MultipartFetchManager {
                 self.parallelParts = 4 * 4
             } else {
                 self.defaultPartSize = 512 * 1024
-                self.parallelParts = 8
+                self.parallelParts = ChogramSettings.current.fasterTransfers ? 16 : 8
             }
         } else {
             self.parallelParts = 1

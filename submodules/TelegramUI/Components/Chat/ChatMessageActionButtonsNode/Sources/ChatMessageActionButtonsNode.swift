@@ -358,7 +358,7 @@ private final class ChatMessageActionButtonNode: ASDisplayNode {
                     node.button = button
                     
                     switch button.action {
-                    case .url:
+                    case .url, .callback, .switchInline:
                         node.longTapRecognizer?.isEnabled = true
                     default:
                         node.longTapRecognizer?.isEnabled = false

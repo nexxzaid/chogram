@@ -271,7 +271,7 @@ public extension EmojiPagerContentComponent {
             let dismissedTrendingEmojiPacksSet = Set(dismissedTrendingEmojiPacks ?? [])
             let featuredEmojiPacksSet = Set(featuredEmojiPacks.map(\.info.id.id))
             
-            if dismissedTrendingEmojiPacksSet != featuredEmojiPacksSet && hasTrending {
+            if dismissedTrendingEmojiPacksSet != featuredEmojiPacksSet && hasTrending && !ChogramSettings.current.onlyMyStickerPacks {
                 for featuredEmojiPack in featuredEmojiPacks {
                     if installedCollectionIds.contains(featuredEmojiPack.info.id) {
                         continue
@@ -1726,7 +1726,7 @@ public extension EmojiPagerContentComponent {
         return combineLatest(
             context.account.postbox.itemCollectionsView(orderedItemListCollectionIds: stickerOrderedItemListCollectionIds, namespaces: stickerNamespaces, aroundIndex: nil, count: 10000000),
             hasPremium(context: context, chatPeerId: chatPeerId, premiumIfSavedMessages: false),
-            hasTrending ? context.account.viewTracker.featuredStickerPacks() : .single([]),
+            hasTrending && !ChogramSettings.current.onlyMyStickerPacks ? context.account.viewTracker.featuredStickerPacks() : .single([]),
             context.engine.data.get(TelegramEngine.EngineData.Item.ItemCache.Item(collectionId: Namespaces.CachedItemCollection.featuredStickersConfiguration, id: ValueBoxKey(length: 0))),
             ApplicationSpecificNotice.dismissedTrendingStickerPacks(accountManager: context.sharedContext.accountManager),
             peerSpecificPack,

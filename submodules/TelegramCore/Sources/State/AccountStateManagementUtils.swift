@@ -4623,6 +4623,9 @@ func replayFinalState(
                 deleteEphemeralMessages(transaction: transaction, peerId: peerId, ids: ids)
             case let .DeleteMessagesWithGlobalIds(allIds):
                 let retainedIds = _internal_chogramRetainDeletedMessages(transaction: transaction, accountPeerId: accountPeerId, ids: transaction.messageIdsForGlobalIds(allIds))
+                if !retainedIds.isEmpty {
+                    chogramKeepMedia(postbox: postbox, accountPeerId: accountPeerId, incomingIds: [])
+                }
                 let retainedGlobalIds = Set(retainedIds.map(\.id))
                 let ids = allIds.filter { !retainedGlobalIds.contains($0) }
                 var resourceIds: [MediaResourceId] = []
@@ -4635,6 +4638,9 @@ func replayFinalState(
                 deletedMessageIds.append(contentsOf: ids.map { .global($0) })
             case let .DeleteMessages(allIds):
                 let retainedIds = _internal_chogramRetainDeletedMessages(transaction: transaction, accountPeerId: accountPeerId, ids: allIds)
+                if !retainedIds.isEmpty {
+                    chogramKeepMedia(postbox: postbox, accountPeerId: accountPeerId, incomingIds: [])
+                }
                 let ids = allIds.filter { !retainedIds.contains($0) }
                 _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: { id, add, remove in
                     addMessageThreadStatsDifference(threadKey: id, remove: remove, addedMessagePeer: nil, addedMessageId: nil, isOutgoing: false)

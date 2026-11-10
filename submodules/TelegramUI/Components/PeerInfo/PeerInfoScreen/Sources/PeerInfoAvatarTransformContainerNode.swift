@@ -391,7 +391,7 @@ final class PeerInfoAvatarTransformContainerNode: ASDisplayNode {
                 
                 self.containerNode.isGestureEnabled = !isSettings
                 
-                if let markup {
+                if let markup, !ChogramSettings.current.disableVideoAvatars {
                     if let videoNode = self.videoNode {
                         self.videoContent = nil
                         self.videoStartTimestamp = nil
@@ -410,7 +410,7 @@ final class PeerInfoAvatarTransformContainerNode: ASDisplayNode {
                     }
                     markupNode.update(markup: markup, size: CGSize(width: 320.0, height: 320.0))
                     markupNode.updateVisibility(true)
-                } else if threadInfo == nil, let video = videoRepresentations.last, let peerReference = PeerReference(peer) {
+                } else if threadInfo == nil, !ChogramSettings.current.disableVideoAvatars, let video = videoRepresentations.last, let peerReference = PeerReference(peer) {
                     let videoFileReference = FileMediaReference.avatarList(peer: peerReference, media: TelegramMediaFile(fileId: EngineMedia.Id(namespace: Namespaces.Media.LocalFile, id: 0), partialReference: nil, resource: video.representation.resource, previewRepresentations: representations.map { $0.representation }, videoThumbnails: [], immediateThumbnailData: immediateThumbnailData, mimeType: "video/mp4", size: nil, attributes: [.Animated, .Video(duration: 0, size: video.representation.dimensions, flags: [], preloadSize: nil, coverTime: nil, videoCodec: nil)], alternativeRepresentations: []))
                     let videoContent = NativeVideoContent(id: .profileVideo(videoId, nil), userLocation: .other, fileReference: videoFileReference, streamVideo: isMediaStreamable(resource: video.representation.resource) ? .conservative : .none, loopVideo: true, enableSound: false, fetchAutomatically: true, onlyFullSizeThumbnail: false, useLargeThumbnail: true, autoFetchFullSizeThumbnail: true, startTimestamp: video.representation.startTimestamp, continuePlayingWithoutSoundOnLostAudioSession: false, placeholderColor: .clear, captureProtected: peer.isCopyProtectionEnabled, storeAfterDownload: nil)
                     if videoContent.id != self.videoContent?.id {
@@ -456,7 +456,7 @@ final class PeerInfoAvatarTransformContainerNode: ASDisplayNode {
                             if isForum {
                                 maskPath = UIBezierPath(roundedRect: CGRect(origin: CGPoint(), size: self.avatarNode.frame.size), cornerRadius: avatarCornerRadius)
                             } else {
-                                maskPath = UIBezierPath(ovalIn: CGRect(origin: CGPoint(), size: self.avatarNode.frame.size))
+                                maskPath = UIBezierPath(roundedRect: CGRect(origin: CGPoint(), size: self.avatarNode.frame.size), cornerRadius: chogramAvatarCornerRadius(size: self.avatarNode.frame.size.height))
                             }
                             let shape = CAShapeLayer()
                             shape.path = maskPath.cgPath

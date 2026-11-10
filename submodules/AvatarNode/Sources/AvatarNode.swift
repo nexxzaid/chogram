@@ -39,8 +39,17 @@ public let chogramAvatarCornersKey = "chogram.avatarCorners"
 
 // Read once: avatars are cached as rendered images, so a new shape applies after a restart.
 private let chogramAvatarCorners: CGFloat = {
+    let percent = ChogramSettings.current.avatarRoundnessPercent
+    if percent < 100 {
+        // Corner radius is size / 2 * factor; the lowest value keeps 15 % of the size.
+        return max(0.3, CGFloat(percent) / 100.0)
+    }
     return CGFloat(UserDefaults.standard.object(forKey: chogramAvatarCornersKey) as? Double ?? 1.0)
 }()
+
+public func chogramAvatarCornerRadius(size: CGFloat) -> CGFloat {
+    return size * 0.5 * chogramAvatarCorners
+}
 
 var chogramAvatarIsRound: Bool {
     return chogramAvatarCorners >= 1.0

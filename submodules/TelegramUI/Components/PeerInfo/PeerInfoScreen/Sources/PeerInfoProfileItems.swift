@@ -175,7 +175,7 @@ func infoItems(
         }
         
         if let phone = user.phone {
-            let formattedPhone = formatPhoneNumber(context: context, number: phone)
+            let formattedPhone = user.id == context.account.peerId ? chogramFormatOwnPhoneNumber(context: context, number: phone) : formatPhoneNumber(context: context, number: phone)
             let label: String
             if formattedPhone.hasPrefix("+888 ") {
                 label = presentationData.strings.UserInfo_AnonymousNumberLabel

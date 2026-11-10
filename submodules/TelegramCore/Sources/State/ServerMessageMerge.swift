@@ -41,5 +41,7 @@ func mergedServerMessageUpdate(previous previousMessage: Message, updated messag
         updatedMedia = previousMessage.media
     }
 
+    updatedAttributes = chogramEditHistoryAttributes(previous: previousMessage, updated: message, attributes: updatedAttributes)
+
     return message.withUpdatedLocalTags(updatedLocalTags).withUpdatedFlags(updatedFlags).withUpdatedAttributes(updatedAttributes).withUpdatedMedia(updatedMedia)
 }

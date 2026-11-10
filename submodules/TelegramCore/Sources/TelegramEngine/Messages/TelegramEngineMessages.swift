@@ -217,6 +217,11 @@ public extension TelegramEngine {
             |> ignoreValues
         }
         
+        public func chogramDeleteForEveryoneKeepingCopy(ids: [MessageId]) -> Signal<Never, NoError> {
+            return _internal_chogramDeleteForEveryoneKeepingCopy(account: self.account, ids: ids)
+            |> ignoreValues
+        }
+        
         public func chogramClearDeletedMessages() -> Signal<Never, NoError> {
             let mediaBox = self.account.postbox.mediaBox
             return self.account.postbox.transaction { transaction -> Void in
