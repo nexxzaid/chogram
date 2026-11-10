@@ -10,6 +10,7 @@ import UndoUI
 import AppBundle
 import TelegramPresentationData
 import ChatPresentationInterfaceState
+import ChatControllerInteraction
 
 // "Прочитать до сюда": with ghost mode hiding read receipts the chat is only read locally, so this
 // sends the read mark to the server up to one message. Nothing else is read.
