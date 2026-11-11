@@ -365,7 +365,7 @@ private enum ChogramSettingsControllerEntry: ItemListNodeEntry {
                 arguments.openCleanText()
             })
         case let .hideAds(value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("AdBlock", presentationData: presentationData), title: "Без рекламы", value: value, sectionId: self.section, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("AdBlock", presentationData: presentationData), title: "Без рекламы", value: value, maximumNumberOfLines: 2, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.store.update { $0.hideAds = value }
             })
         case .linksHeader:
@@ -640,29 +640,29 @@ private enum ChogramGhostModeEntry: ItemListNodeEntry {
         let arguments = arguments as! ChogramGhostModeControllerArguments
         switch self {
         case let .enabled(value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Ghost", presentationData: presentationData), title: "Режим призрака", value: value, sectionId: self.section, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, icon: chogramIcon("Ghost", presentationData: presentationData), title: "Режим призрака", value: value, maximumNumberOfLines: 2, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.store.update { $0.ghostMode = value }
             })
         case .optionsHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "ЧТО СКРЫВАТЬ", sectionId: self.section)
         case let .hideOnline(value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Не показывать онлайн", value: value, sectionId: self.section, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Не показывать онлайн", value: value, maximumNumberOfLines: 2, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.store.update { $0.ghostHideOnline = value }
             })
         case let .hideRead(value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Не читать сообщения", value: value, sectionId: self.section, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Не читать сообщения", value: value, maximumNumberOfLines: 2, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.store.update { $0.ghostHideRead = value }
             })
         case let .hideStoryViews(value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Не читать истории", value: value, sectionId: self.section, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Не читать истории", value: value, maximumNumberOfLines: 2, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.store.update { $0.ghostHideStoryViews = value }
             })
         case let .hideTyping(value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Не показывать набор", value: value, sectionId: self.section, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Не показывать набор", value: value, maximumNumberOfLines: 2, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.store.update { $0.ghostHideTyping = value }
             })
         case let .readOnSend(value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Читать чат при отправке", value: value, sectionId: self.section, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Читать чат при отправке", value: value, maximumNumberOfLines: 2, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.store.update { $0.ghostReadOnSend = value }
             })
         case let .form(entry):
@@ -814,7 +814,7 @@ private enum ChogramDeletedMessagesEntry: ItemListNodeEntry {
         case let .preview(settings):
             return ChogramDeletedMessagePreviewItem(theme: theme, settings: settings, sectionId: self.section)
         case let .keepDeletedMessages(value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Сохранять удалённые", value: value, sectionId: self.section, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Сохранять удалённые", value: value, maximumNumberOfLines: 2, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.store.update { $0.keepDeletedMessages = value }
             })
         case .styleHeader:
@@ -841,7 +841,7 @@ private enum ChogramDeletedMessagesEntry: ItemListNodeEntry {
             }, action: {
             })
         case let .showDeletionTime(value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Время удаления", value: value, sectionId: self.section, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Время удаления", value: value, maximumNumberOfLines: 2, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.store.update { $0.showDeletionTime = value }
             })
         case let .clear(count):
@@ -1121,7 +1121,7 @@ private enum ChogramCleanTextEntry: ItemListNodeEntry {
         case let .preview(isEnabled):
             return ItemListTextItem(presentationData: presentationData, text: .plain(isEnabled ? "Пример: Привет" : "Пример: \(chogramZalgoSample)"), sectionId: self.section)
         case let .enabled(value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Убирать искажённый текст", value: value, sectionId: self.section, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Убирать искажённый текст", value: value, maximumNumberOfLines: 2, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.store.update { $0.filterZalgo = value }
             })
         case .footer:
@@ -1287,7 +1287,7 @@ private enum ChogramToggleEntry: ItemListNodeEntry {
         let arguments = arguments as! ChogramToggleArguments
         switch self {
         case let .toggle(index, title, value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, sectionId: self.section, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, maximumNumberOfLines: 2, sectionId: self.section, style: .blocks, updated: { value in
                 let row = arguments.rows[Int(index)]
                 arguments.store.update { $0[keyPath: row.keyPath] = value }
                 row.onChange?(value)

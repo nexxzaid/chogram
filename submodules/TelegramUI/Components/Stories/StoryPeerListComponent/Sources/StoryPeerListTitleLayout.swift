@@ -24,6 +24,21 @@ enum StoryPeerListTitleLayout {
         return centred + (balanced - centred) * fraction
     }
 
+    /// The width left for the title's text in the band once the collapsed stories (or the spinner that replaces them),
+    /// the lock and the status have theirs. Whole points, so it does not change with sub-point band movement.
+    static func textFittingWidth(minX: CGFloat, maxX: CGFloat, collapsedItemCount: Int, hasLock: Bool, hasStatus: Bool) -> CGFloat {
+        let bandWidth = maxX - StoryPeerListTitleLayout.trailingMargin - (minX + StoryPeerListTitleLayout.leadingMargin)
+        var reserved: CGFloat = 24.0 + 14.0 * CGFloat(max(0, collapsedItemCount - 1))
+        reserved += 8.0
+        if hasLock {
+            reserved += 20.0
+        }
+        if hasStatus {
+            reserved += 4.0 + 22.0
+        }
+        return max(0.0, floor(bandWidth - reserved) - 1.0)
+    }
+
     /// Whether the title's text fits, given the content's width with it.
     static func showsTitleText(contentWidth: CGFloat, minX: CGFloat, maxX: CGFloat) -> Bool {
         return contentWidth <= maxX - StoryPeerListTitleLayout.trailingMargin - (minX + StoryPeerListTitleLayout.leadingMargin)

@@ -317,10 +317,12 @@ public final class StoryPeerListComponent: Component {
     private struct TitleState: Equatable {
         var text: String
         var color: UIColor
+        var fittingWidth: CGFloat
         
-        init(text: String, color: UIColor) {
+        init(text: String, color: UIColor, fittingWidth: CGFloat) {
             self.text = text
             self.color = color
+            self.fittingWidth = fittingWidth
         }
     }
     
@@ -687,6 +689,34 @@ public final class StoryPeerListComponent: Component {
                 self.animator = animator
                 animator.isPaused = false
             }
+        }
+        
+        /// How many collapsed story avatars stand before the title: the count `updateScrolling` arrives at, from the
+        /// component alone, since the title is drawn before the items are sorted.
+        private func estimatedCollapsedItemCount(component: StoryPeerListComponent) -> Int {
+            guard let storySubscriptions = component.storySubscriptions else {
+                return 0
+            }
+            var totalCount = 0
+            if !component.useHiddenList, storySubscriptions.accountItem != nil {
+                totalCount += 1
+            }
+            for itemSet in storySubscriptions.items {
+                if itemSet.peer.id != component.context.account.peerId {
+                    totalCount += 1
+                }
+            }
+            let collapseStartIndex: Int
+            if component.useHiddenList {
+                collapseStartIndex = 0
+            } else if totalCount < 3, let accountItem = storySubscriptions.accountItem, accountItem.storyCount != 0 {
+                collapseStartIndex = 1
+            } else if let accountItem = storySubscriptions.accountItem, (accountItem.hasUnseen || accountItem.hasPending) {
+                collapseStartIndex = 0
+            } else {
+                collapseStartIndex = 1
+            }
+            return max(0, min(totalCount - collapseStartIndex, 3))
         }
         
         private func updateScrolling(transition: ComponentTransition) {
@@ -1445,7 +1475,9 @@ public final class StoryPeerListComponent: Component {
             if self.sortedItems.isEmpty {
                 titleContentOffset = collapsedTitleOffset
             } else {
-                titleContentOffset = titleMinContentOffset.interpolate(to: ((itemLayout.containerSize.width - titleWidth) * 0.5) as CGFloat, amount: min(1.0, collapsedState.maxFraction) * (1.0 - collapsedState.activityFraction))
+                // A long title (a username, a name) is kept between the bar's buttons rather than centred under them.
+                let expandedTitleOffset = StoryPeerListTitleLayout.contentOrigin(containerWidth: itemLayout.containerSize.width, contentWidth: titleWidth, minX: component.minTitleX, maxX: component.maxTitleX)
+                titleContentOffset = titleMinContentOffset.interpolate(to: expandedTitleOffset, amount: min(1.0, collapsedState.maxFraction) * (1.0 - collapsedState.activityFraction))
                 titleContentOffset += -expandBoundsFraction * 4.0
             }
             
@@ -1752,16 +1784,48 @@ public final class StoryPeerListComponent: Component {
             self.component = component
             self.state = state
             
-            let updatedTitleState = TitleState(text: component.title, color: component.theme.rootController.navigationBar.primaryTextColor)
+            // What is left for the title's text next to the collapsed stories, the lock and the status. A title wider
+            // than that is drawn smaller, then cut, instead of losing its text altogether.
+            let titleFittingWidth = StoryPeerListTitleLayout.textFittingWidth(
+                minX: component.minTitleX,
+                maxX: component.maxTitleX,
+                collapsedItemCount: self.estimatedCollapsedItemCount(component: component),
+                hasLock: component.titleHasLock,
+                hasStatus: component.titlePeerStatus != nil
+            )
+            let updatedTitleState = TitleState(text: component.title, color: component.theme.rootController.navigationBar.primaryTextColor, fittingWidth: titleFittingWidth)
             if self.titleState != updatedTitleState {
                 self.titleState = updatedTitleState
                 
+                var titleFontSize: CGFloat = 17.0
+                var titleConstrainedWidth: CGFloat = max(0.0, component.maxTitleX - component.minTitleX - 46.0)
+                if titleFittingWidth >= 40.0 {
+                    var fits = false
+                    for candidateSize in [17.0, 16.0, 15.0, 14.0, 13.0] as [CGFloat] {
+                        titleFontSize = candidateSize
+                        let candidateText = NSAttributedString(string: updatedTitleState.text, attributes: [
+                            NSAttributedString.Key.font: Font.semibold(candidateSize)
+                        ])
+                        let candidateWidth = ceil(candidateText.boundingRect(with: CGSize(width: 10000.0, height: 100.0), options: [.usesLineFragmentOrigin], context: nil).width)
+                        if candidateWidth <= titleFittingWidth {
+                            fits = true
+                            break
+                        }
+                    }
+                    // A title that fits at full size is laid out exactly as before.
+                    if !fits {
+                        titleConstrainedWidth = min(titleConstrainedWidth, titleFittingWidth)
+                    } else if titleFontSize != 17.0 {
+                        titleConstrainedWidth = min(titleConstrainedWidth, titleFittingWidth + 1.0)
+                    }
+                }
+                
                 let attributedText = NSAttributedString(string: updatedTitleState.text, attributes: [
-                    NSAttributedString.Key.font: Font.semibold(17.0),
+                    NSAttributedString.Key.font: Font.semibold(titleFontSize),
                     NSAttributedString.Key.foregroundColor: component.theme.rootController.navigationBar.primaryTextColor
                 ])
                 
-                let cachedLayout = TextNode.calculateLayout(attributedString: attributedText, minimumNumberOfLines: 1, maximumNumberOfLines: 1, truncationType: .end, backgroundColor: nil, constrainedSize: CGSize(width: max(0.0, component.maxTitleX - component.minTitleX - 46.0), height: 100.0), alignment: .left, verticalAlignment: .middle, lineSpacingFactor: 0.0, cutout: nil, insets: UIEdgeInsets(), lineColor: nil, textShadowColor: nil, textShadowBlur: nil, textStroke: nil, displaySpoilers: false, displayEmbeddedItemsUnderSpoilers: false, customTruncationToken: nil)
+                let cachedLayout = TextNode.calculateLayout(attributedString: attributedText, minimumNumberOfLines: 1, maximumNumberOfLines: 1, truncationType: .end, backgroundColor: nil, constrainedSize: CGSize(width: titleConstrainedWidth, height: 100.0), alignment: .left, verticalAlignment: .middle, lineSpacingFactor: 0.0, cutout: nil, insets: UIEdgeInsets(), lineColor: nil, textShadowColor: nil, textShadowBlur: nil, textStroke: nil, displaySpoilers: false, displayEmbeddedItemsUnderSpoilers: false, customTruncationToken: nil)
 
                 let renderer = UIGraphicsImageRenderer(bounds: CGRect(origin: CGPoint(), size: cachedLayout.size))
                 let image = renderer.image { context in

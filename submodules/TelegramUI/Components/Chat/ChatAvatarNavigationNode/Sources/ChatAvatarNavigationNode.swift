@@ -326,7 +326,8 @@ public final class ChatAvatarNavigationNode: ASDisplayNode {
                     colors: AvatarStoryIndicatorComponent.Colors(theme: theme),
                     activeLineWidth: 1.0,
                     inactiveLineWidth: 1.0,
-                    counters: nil
+                    counters: nil,
+                    cornerRadius: chogramAvatarShapeCornerRadius(size: self.avatarNode.bounds.insetBy(dx: 2.0, dy: 2.0).size.width)
                 )),
                 environment: {},
                 containerSize: self.avatarNode.bounds.insetBy(dx: 2.0, dy: 2.0).size

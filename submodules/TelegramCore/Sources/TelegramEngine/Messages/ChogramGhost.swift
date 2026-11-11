@@ -54,6 +54,11 @@ extension ChogramSettings {
 // now, so the lead is kept a little above the usual 10 s limit.
 private let chogramGhostScheduleLead: Int32 = 12
 
+// Posted on the main queue when ghost mode turned outgoing messages into scheduled ones. The chat
+// shows a notice, because the message leaves the history until the server publishes it.
+// userInfo: "peerId" (Int64), "delay" (Int32 seconds).
+public let chogramGhostSendDivertedNotification = Notification.Name("ChogramGhostSendDiverted")
+
 func chogramGhostScheduledMessages(account: Account, peerId: PeerId, messages: [EnqueueMessage]) -> [EnqueueMessage] {
     guard ChogramSettings.current.ghostSendScheduled && chogramHidesOnline(accountPeerId: account.peerId) else {
         return messages
@@ -62,7 +67,8 @@ func chogramGhostScheduledMessages(account: Account, peerId: PeerId, messages: [
         return messages
     }
     let scheduleTime = Int32(account.network.context.globalTime()) + chogramGhostScheduleLead
-    return messages.map { message -> EnqueueMessage in
+    var diverted = false
+    let result = messages.map { message -> EnqueueMessage in
         guard case let .message(text, attributes, _, mediaReference, _, _, replyToStoryId, _, _, _) = message else {
             return message
         }
@@ -80,10 +86,18 @@ func chogramGhostScheduledMessages(account: Account, peerId: PeerId, messages: [
                 return message
             }
         }
+        diverted = true
         return message.withUpdatedAttributes { attributes in
             return attributes + [OutgoingScheduleInfoMessageAttribute(scheduleTime: scheduleTime, repeatPeriod: nil)]
         }
     }
+    if diverted {
+        let peerIdValue = peerId.toInt64()
+        Queue.mainQueue().async {
+            NotificationCenter.default.post(name: chogramGhostSendDivertedNotification, object: nil, userInfo: ["peerId": peerIdValue, "delay": chogramGhostScheduleLead])
+        }
+    }
+    return result
 }
 
 // Marks a chat read on the server up to one message, even while ghost mode hides read receipts.

@@ -527,7 +527,13 @@ public final class SelectablePeerNode: ASDisplayNode {
         let avatarFrame = self.avatarNode.frame
         let avatarContainerFrame = self.avatarNodeContainer.frame
         
-        self.onlineNode.frame = CGRect(origin: CGPoint(x: avatarContainerFrame.maxX - self.onlineNode.frame.width - 2.0, y: avatarContainerFrame.maxY - self.onlineNode.frame.height - 2.0), size: self.onlineNode.frame.size)
+        if let avatarCornerRadius = chogramAvatarShapeCornerRadius(size: avatarContainerFrame.width) {
+            // Center the dot on the corner arc so it hugs a square avatar.
+            let arcOffset = avatarCornerRadius * (1.0 - 0.70710678)
+            self.onlineNode.frame = CGRect(origin: CGPoint(x: avatarContainerFrame.maxX - arcOffset - self.onlineNode.frame.width * 0.5, y: avatarContainerFrame.maxY - arcOffset - self.onlineNode.frame.height * 0.5), size: self.onlineNode.frame.size)
+        } else {
+            self.onlineNode.frame = CGRect(origin: CGPoint(x: avatarContainerFrame.maxX - self.onlineNode.frame.width - 2.0, y: avatarContainerFrame.maxY - self.onlineNode.frame.height - 2.0), size: self.onlineNode.frame.size)
+        }
         
         if let checkNode = self.checkNode {
             let checkSize = CGSize(width: 22.0, height: 22.0)

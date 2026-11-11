@@ -108,6 +108,80 @@ final class ChogramValueSliderItemNode: ChogramBlockItemNode {
     }
 }
 
+// MARK: - Sticker size preview
+
+// Shows a sticker at the chosen size next to a dashed outline of the standard one, both at the same
+// reduced scale so the largest size still fits the row.
+final class ChogramStickerSizePreviewItem: ChogramBlockItem {
+    static let previewScale: CGFloat = 0.6
+    static let standardSide: CGFloat = 184.0
+
+    let percent: Int
+
+    override var height: CGFloat {
+        return floor(ChogramStickerSizePreviewItem.standardSide * 1.5 * ChogramStickerSizePreviewItem.previewScale) + 24.0
+    }
+
+    init(theme: PresentationTheme, percent: Int, sectionId: ItemListSectionId) {
+        self.percent = percent
+        super.init(theme: theme, sectionId: sectionId)
+    }
+
+    override func makeNode() -> ChogramBlockItemNode {
+        return ChogramStickerSizePreviewItemNode()
+    }
+}
+
+final class ChogramStickerSizePreviewItemNode: ChogramBlockItemNode {
+    private let outlineLayer: CAShapeLayer
+    private let stickerNode: ImmediateTextNode
+    private var currentSide: CGFloat?
+
+    override init() {
+        self.outlineLayer = CAShapeLayer()
+        self.outlineLayer.fillColor = nil
+        self.outlineLayer.lineWidth = 1.0
+        self.outlineLayer.lineDashPattern = [4.0, 4.0]
+        self.stickerNode = ImmediateTextNode()
+        self.stickerNode.displaysAsynchronously = false
+
+        super.init()
+
+        self.layer.addSublayer(self.outlineLayer)
+        self.addSubnode(self.stickerNode)
+    }
+
+    override func updateContent(item: ChogramBlockItem, params: ListViewItemLayoutParams) {
+        guard let item = item as? ChogramStickerSizePreviewItem else {
+            return
+        }
+        let scale = ChogramStickerSizePreviewItem.previewScale
+        let standardSide = floor(ChogramStickerSizePreviewItem.standardSide * scale)
+        let side = floor(ChogramStickerSizePreviewItem.standardSide * CGFloat(item.percent) / 100.0 * scale)
+        let rightX = params.width - params.rightInset - 16.0
+        let bottomY = item.height - 12.0
+
+        let standardFrame = CGRect(x: rightX - standardSide, y: bottomY - standardSide, width: standardSide, height: standardSide)
+        self.outlineLayer.strokeColor = item.theme.list.itemSecondaryTextColor.withAlphaComponent(0.5).cgColor
+        self.outlineLayer.frame = standardFrame
+        self.outlineLayer.path = UIBezierPath(roundedRect: CGRect(origin: CGPoint(), size: standardFrame.size), cornerRadius: 12.0).cgPath
+
+        // Emoji always come from the system emoji font, so the user's custom font does not change the glyph.
+        if self.stickerNode.attributedText == nil {
+            self.stickerNode.attributedText = NSAttributedString(string: "\u{1F60E}", attributes: [.font: UIFont.systemFont(ofSize: 100.0)])
+        }
+        let glyphSize = self.stickerNode.updateLayout(CGSize(width: 400.0, height: 400.0))
+        let stickerFrame = CGRect(x: rightX - side, y: bottomY - side, width: side, height: side)
+        let glyphScale = side / max(1.0, max(glyphSize.width, glyphSize.height))
+
+        let transition: ContainedViewLayoutTransition = self.currentSide == nil ? .immediate : .animated(duration: 0.15, curve: .easeInOut)
+        self.currentSide = side
+        transition.updateBounds(node: self.stickerNode, bounds: CGRect(origin: CGPoint(), size: glyphSize))
+        transition.updatePosition(node: self.stickerNode, position: CGPoint(x: stickerFrame.midX, y: stickerFrame.midY))
+        transition.updateTransformScale(node: self.stickerNode, scale: glyphScale)
+    }
+}
+
 // MARK: - Generic form screen
 
 struct ChogramFormAccount: Equatable {
@@ -136,6 +210,7 @@ enum ChogramFormEntry: ItemListNodeEntry {
     case input(Int32, Int32, String, String, String, WritableKeyPath<ChogramSettings, String>)
     case menuItem(Int32, Int32, String, String, Bool)
     case account(Int32, Int32, String, Int64, Bool)
+    case stickerPreview(Int32, Int32, Int)
 
     var section: ItemListSectionId {
         switch self {
@@ -154,6 +229,8 @@ enum ChogramFormEntry: ItemListNodeEntry {
         case let .menuItem(section, _, _, _, _):
             return section
         case let .account(section, _, _, _, _):
+            return section
+        case let .stickerPreview(section, _, _):
             return section
         }
     }
@@ -176,6 +253,8 @@ enum ChogramFormEntry: ItemListNodeEntry {
             return id
         case let .account(_, id, _, _, _):
             return id
+        case let .stickerPreview(_, id, _):
+            return id
         }
     }
 
@@ -192,12 +271,13 @@ enum ChogramFormEntry: ItemListNodeEntry {
         case let .footer(_, _, text):
             return ItemListTextItem(presentationData: presentationData, text: .plain(text), sectionId: sectionId)
         case let .toggle(_, _, title, keyPath, value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, sectionId: sectionId, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, maximumNumberOfLines: 2, sectionId: sectionId, style: .blocks, updated: { value in
                 arguments.store.update { $0[keyPath: keyPath] = value }
                 arguments.didUpdate(ChogramSettings.current)
             })
         case let .disclosure(_, _, title, label, key):
-            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: title, label: label, sectionId: sectionId, style: .blocks, action: {
+            // Wide custom fonts leave no room for a value beside the title, so the value goes under it.
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: title, label: label, labelStyle: label.isEmpty ? .text : .detailText, sectionId: sectionId, style: .blocks, action: {
                 arguments.open(key)
             })
         case let .slider(_, _, title, minValue, maxValue, value, keyPath):
@@ -211,7 +291,7 @@ enum ChogramFormEntry: ItemListNodeEntry {
             }, action: {
             })
         case let .menuItem(_, _, title, rawValue, value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, sectionId: sectionId, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, maximumNumberOfLines: 2, sectionId: sectionId, style: .blocks, updated: { value in
                 arguments.store.update { settings in
                     if value {
                         settings.hiddenMessageMenuItems.remove(rawValue)
@@ -221,7 +301,7 @@ enum ChogramFormEntry: ItemListNodeEntry {
                 }
             })
         case let .account(_, _, title, accountId, value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, sectionId: sectionId, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, maximumNumberOfLines: 2, sectionId: sectionId, style: .blocks, updated: { value in
                 arguments.store.update { settings in
                     if value {
                         settings.ghostDisabledAccountIds.remove(accountId)
@@ -230,6 +310,8 @@ enum ChogramFormEntry: ItemListNodeEntry {
                     }
                 }
             })
+        case let .stickerPreview(_, _, percent):
+            return ChogramStickerSizePreviewItem(theme: presentationData.theme, percent: percent, sectionId: sectionId)
         }
     }
 }
@@ -288,6 +370,11 @@ final class ChogramFormBuilder {
     func slider(_ title: String, min: Int, max: Int, _ keyPath: WritableKeyPath<ChogramSettings, Int>, _ settings: ChogramSettings) {
         let (section, id) = self.take()
         self.entries.append(.slider(section, id, title, min, max, settings[keyPath: keyPath], keyPath))
+    }
+
+    func stickerPreview(_ percent: Int) {
+        let (section, id) = self.take()
+        self.entries.append(.stickerPreview(section, id, percent))
     }
 
     func input(_ title: String, placeholder: String, _ keyPath: WritableKeyPath<ChogramSettings, String>, _ settings: ChogramSettings) {
@@ -683,6 +770,7 @@ func chogramMediaController(context: AccountContext, store: ChogramSettingsStore
         b.toggle("Видео в лучшем качестве", \.videoWithoutCompression, settings)
         b.footer("Фото уходят в HD, а видео в лучшем качестве, которое позволяет Telegram. Для одного файла качество можно сменить в редакторе перед отправкой.")
         b.slider("Размер стикеров", min: 50, max: 150, \.stickerSizePercent, settings)
+        b.stickerPreview(settings.stickerSizePercent)
         b.gap()
         b.disclosure("Камера для кружков", label: chogramRoundVideoCameraTitle(settings.roundVideoCamera), key: "roundVideoCamera")
         b.gap()

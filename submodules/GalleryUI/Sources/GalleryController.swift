@@ -19,6 +19,12 @@ import TranslateUI
 import UrlWhitelist
 
 private func tagsForMessage(_ message: Message) -> MessageTags? {
+    // View-once and short-timer media is stored without media tags, so a tagged history view
+    // anchored at such a message never contains it: the gallery would then open on a neighbour
+    // (or on nothing) and its save action would save that neighbour. Show the message alone.
+    if message.containsSecretMedia {
+        return nil
+    }
     //TODO:rewrite to take all media (effectiveMedia returns all rich-text media; we stop at the first)
     for media in message.effectiveMedia {
         switch media {

@@ -427,6 +427,8 @@ public final class AvatarStoryIndicatorComponent: Component {
     public let counters: Counters?
     public let progress: Progress?
     public let isRoundedRect: Bool
+    /// Corner radius of the avatar inside the ring; nil keeps the circular ring.
+    public let cornerRadius: CGFloat?
     
     public init(
         hasUnseen: Bool,
@@ -437,7 +439,8 @@ public final class AvatarStoryIndicatorComponent: Component {
         inactiveLineWidth: CGFloat,
         counters: Counters?,
         progress: Progress? = nil,
-        isRoundedRect: Bool = false
+        isRoundedRect: Bool = false,
+        cornerRadius: CGFloat? = nil
     ) {
         self.hasUnseen = hasUnseen
         self.hasUnseenCloseFriendsItems = hasUnseenCloseFriendsItems
@@ -448,6 +451,7 @@ public final class AvatarStoryIndicatorComponent: Component {
         self.counters = counters
         self.progress = progress
         self.isRoundedRect = isRoundedRect
+        self.cornerRadius = cornerRadius
     }
     
     public static func ==(lhs: AvatarStoryIndicatorComponent, rhs: AvatarStoryIndicatorComponent) -> Bool {
@@ -478,6 +482,9 @@ public final class AvatarStoryIndicatorComponent: Component {
         if lhs.isRoundedRect != rhs.isRoundedRect {
             return false
         }
+        if lhs.cornerRadius != rhs.cornerRadius {
+            return false
+        }
         return true
     }
     
@@ -491,8 +498,10 @@ public final class AvatarStoryIndicatorComponent: Component {
             var size: CGSize
             var lineWidth: CGFloat
             var value: Value
+            var cornerRadius: CGFloat?
         }
         private var currentParams: Params?
+        private var isShaped: Bool = false
         
         private let uploadProgressLayer = SimpleShapeLayer()
         
@@ -542,6 +551,29 @@ public final class AvatarStoryIndicatorComponent: Component {
             self.uploadProgressLayer.path = nil
         }
         
+        private func configureShape(shaped: Bool) {
+            self.isShaped = shaped
+            self.indefiniteDashLayer.path = nil
+            self.uploadProgressLayer.path = nil
+            self.indefiniteDashLayer.removeAllAnimations()
+            self.uploadProgressLayer.removeAllAnimations()
+            self.indefiniteReplicatorLayer.removeAllAnimations()
+            if shaped {
+                // A rounded square cannot be rotated like a circle: its dash travels along the path instead.
+                self.indefiniteDashLayer.strokeEnd = 1.0
+                self.indefiniteReplicatorLayer.instanceCount = 1
+                self.indefiniteReplicatorLayer.instanceTransform = CATransform3DIdentity
+                self.indefiniteReplicatorLayer.transform = CATransform3DIdentity
+            } else {
+                self.indefiniteDashLayer.strokeEnd = 0.0333
+                let count = 1.0 / self.indefiniteDashLayer.strokeEnd
+                let angle = (2.0 * Double.pi) / Double(count)
+                self.indefiniteReplicatorLayer.instanceCount = Int(count)
+                self.indefiniteReplicatorLayer.instanceTransform = CATransform3DMakeRotation(CGFloat(angle), 0.0, 0.0, 1.0)
+                self.indefiniteReplicatorLayer.transform = CATransform3DMakeRotation(-.pi / 2.0, 0.0, 0.0, 1.0)
+            }
+        }
+        
         func updateAnimations(transition: ComponentTransition) {
             guard let params = self.currentParams else {
                 return
@@ -556,7 +588,9 @@ public final class AvatarStoryIndicatorComponent: Component {
                     self.addSublayer(self.uploadProgressLayer)
                 }
                 transition.setShapeLayerStrokeEnd(layer: self.uploadProgressLayer, strokeEnd: CGFloat(progress))
-                if self.uploadProgressLayer.animation(forKey: "rotation") == nil {
+                if self.isShaped {
+                    // No rotation: the path already starts at the top center.
+                } else if self.uploadProgressLayer.animation(forKey: "rotation") == nil {
                     let rotationAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
                     rotationAnimation.duration = 2.0
                     rotationAnimation.fromValue = NSNumber(value: Float(0.0))
@@ -572,7 +606,25 @@ public final class AvatarStoryIndicatorComponent: Component {
                 if self.indefiniteReplicatorLayer.superlayer == nil {
                     self.addSublayer(self.indefiniteReplicatorLayer)
                 }
-                if self.indefiniteReplicatorLayer.animation(forKey: "rotation") == nil {
+                if self.isShaped {
+                    if self.indefiniteDashLayer.animation(forKey: "shapedStart") == nil {
+                        let startAnimation = CAKeyframeAnimation(keyPath: "strokeStart")
+                        startAnimation.keyTimes = [0.0, 0.4, 1.0]
+                        startAnimation.values = [0.0, 0.0, 1.0]
+                        startAnimation.duration = 1.6
+                        startAnimation.repeatCount = .infinity
+                        startAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                        self.indefiniteDashLayer.add(startAnimation, forKey: "shapedStart")
+                        
+                        let endAnimation = CAKeyframeAnimation(keyPath: "strokeEnd")
+                        endAnimation.keyTimes = [0.0, 0.6, 1.0]
+                        endAnimation.values = [0.0, 1.0, 1.0]
+                        endAnimation.duration = 1.6
+                        endAnimation.repeatCount = .infinity
+                        endAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                        self.indefiniteDashLayer.add(endAnimation, forKey: "shapedEnd")
+                    }
+                } else if self.indefiniteReplicatorLayer.animation(forKey: "rotation") == nil {
                     let rotationAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
                     rotationAnimation.duration = 4.0
                     rotationAnimation.fromValue = NSNumber(value: -.pi / 2.0)
@@ -581,7 +633,7 @@ public final class AvatarStoryIndicatorComponent: Component {
                     rotationAnimation.timingFunction = CAMediaTimingFunction(name: CAMediaTimingFunctionName.linear)
                     self.indefiniteReplicatorLayer.add(rotationAnimation, forKey: "rotation")
                 }
-                if self.indefiniteDashLayer.animation(forKey: "dash") == nil {
+                if !self.isShaped && self.indefiniteDashLayer.animation(forKey: "dash") == nil {
                     let dashAnimation = CAKeyframeAnimation(keyPath: "strokeStart")
                     dashAnimation.keyTimes = [0.0, 0.45, 0.55, 1.0]
                     dashAnimation.values = [
@@ -598,31 +650,46 @@ public final class AvatarStoryIndicatorComponent: Component {
             }
         }
         
-        func update(size: CGSize, radius: CGFloat, isRoundedRect: Bool, lineWidth: CGFloat, value: Value, transition: ComponentTransition) {
+        func update(size: CGSize, radius: CGFloat, cornerRadius: CGFloat?, lineWidth: CGFloat, value: Value, transition: ComponentTransition) {
             let params = Params(
                 size: size,
                 lineWidth: lineWidth,
-                value: value
+                value: value,
+                cornerRadius: cornerRadius
             )
             if self.currentParams == params {
                 return
             }
+            let previousCornerRadius = self.currentParams?.cornerRadius
             self.currentParams = params
+            
+            if (cornerRadius != nil) != self.isShaped || (cornerRadius != nil && cornerRadius != previousCornerRadius) {
+                self.configureShape(shaped: cornerRadius != nil)
+            }
             
             self.indefiniteDashLayer.lineWidth = lineWidth
             self.uploadProgressLayer.lineWidth = lineWidth
             
             let bounds = CGRect(origin: .zero, size: size)
+            let ringRect = CGRect(origin: CGPoint(x: (size.width - radius * 2.0) * 0.5, y: (size.height - radius * 2.0) * 0.5), size: CGSize(width: radius * 2.0, height: radius * 2.0))
             if self.uploadProgressLayer.path == nil {
                 let path = CGMutablePath()
-                path.addEllipse(in: CGRect(origin: CGPoint(x: (size.width - radius * 2.0) * 0.5, y: (size.height - radius * 2.0) * 0.5), size: CGSize(width: radius * 2.0, height: radius * 2.0)))
+                if cornerRadius != nil {
+                    path.addPath(AvatarRingShape.progressPath(rect: ringRect, cornerRadius: cornerRadius))
+                } else {
+                    path.addEllipse(in: ringRect)
+                }
                 self.uploadProgressLayer.path = path
                 self.uploadProgressLayer.frame = bounds
             }
             
             if self.indefiniteDashLayer.path == nil {
                 let path = CGMutablePath()
-                path.addEllipse(in: CGRect(origin: CGPoint(x: (size.width - radius * 2.0) * 0.5, y: (size.height - radius * 2.0) * 0.5), size: CGSize(width: radius * 2.0, height: radius * 2.0)))
+                if cornerRadius != nil {
+                    path.addPath(AvatarRingShape.progressPath(rect: ringRect, cornerRadius: cornerRadius))
+                } else {
+                    path.addEllipse(in: ringRect)
+                }
                 self.indefiniteDashLayer.path = path
                 self.indefiniteReplicatorLayer.frame = bounds
                 self.indefiniteDashLayer.frame = bounds
@@ -677,6 +744,17 @@ public final class AvatarStoryIndicatorComponent: Component {
             
             let radius = (diameter - component.activeLineWidth) * 0.5
             
+            // Center-line corner radius of the ring: avatar corner plus the gap to the ring, so the gap stays even.
+            let ringCornerRadius: (CGFloat) -> CGFloat? = { lineWidth in
+                if component.isRoundedRect {
+                    return floor(diameter * 0.27)
+                } else if let cornerRadius = component.cornerRadius {
+                    return max(0.0, cornerRadius + maxOuterInset - lineWidth * 0.5)
+                } else {
+                    return nil
+                }
+            }
+            
             self.indicatorView.image = generateImage(CGSize(width: imageDiameter, height: imageDiameter), rotatedContext: { size, context in
                 UIGraphicsPushContext(context)
                 defer {
@@ -690,10 +768,11 @@ public final class AvatarStoryIndicatorComponent: Component {
                 var locations: [CGFloat] = [0.0, 1.0]
                 
                 if let counters = component.counters, !component.hasLiveItems, counters.totalCount > 1 {
-                    if component.isRoundedRect {
-                        let lineWidth: CGFloat = (component.hasUnseen || component.hasLiveItems) ? component.activeLineWidth : component.inactiveLineWidth
+                    let segmentedLineWidth: CGFloat = (component.hasUnseen || component.hasLiveItems) ? component.activeLineWidth : component.inactiveLineWidth
+                    if let segmentedCornerRadius = ringCornerRadius(segmentedLineWidth) {
+                        let lineWidth: CGFloat = segmentedLineWidth
                         context.setLineWidth(lineWidth)
-                        let path = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: size.width * 0.5 - diameter * 0.5, y: size.height * 0.5 - diameter * 0.5), size: size).insetBy(dx: lineWidth * 0.5, dy: lineWidth * 0.5), cornerRadius: floor(diameter * 0.27))
+                        let path = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: size.width * 0.5 - diameter * 0.5, y: size.height * 0.5 - diameter * 0.5), size: size).insetBy(dx: lineWidth * 0.5, dy: lineWidth * 0.5), cornerRadius: segmentedCornerRadius)
                         
                         var startPoint: CGPoint?
                         var vertices: [CurveVertex] = []
@@ -836,9 +915,9 @@ public final class AvatarStoryIndicatorComponent: Component {
                 } else {
                     let lineWidth: CGFloat = (component.hasUnseen || component.hasLiveItems) ? component.activeLineWidth : component.inactiveLineWidth
                     context.setLineWidth(lineWidth)
-                    if component.isRoundedRect {
-                        let path = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: size.width * 0.5 - diameter * 0.5, y: size.height * 0.5 - diameter * 0.5), size: size).insetBy(dx: lineWidth * 0.5, dy: lineWidth * 0.5), cornerRadius: floor(diameter * 0.27))
-                        context.addPath(path.cgPath)
+                    if let cornerRadius = ringCornerRadius(lineWidth) {
+                        let ringRect = CGRect(origin: CGPoint(x: size.width * 0.5 - diameter * 0.5, y: size.height * 0.5 - diameter * 0.5), size: size).insetBy(dx: lineWidth * 0.5, dy: lineWidth * 0.5)
+                        context.addPath(AvatarRingShape.path(rect: ringRect, cornerRadius: cornerRadius))
                     } else {
                         context.addEllipse(in: CGRect(origin: CGPoint(x: size.width * 0.5 - diameter * 0.5, y: size.height * 0.5 - diameter * 0.5), size: size).insetBy(dx: lineWidth * 0.5, dy: lineWidth * 0.5))
                     }
@@ -911,7 +990,7 @@ public final class AvatarStoryIndicatorComponent: Component {
                     mappedProgress = .progress(value)
                 }
                 
-                progressLayer.update(size: indicatorFrame.size, radius: radius, isRoundedRect: component.isRoundedRect, lineWidth: lineWidth, value: mappedProgress, transition: .immediate)
+                progressLayer.update(size: indicatorFrame.size, radius: radius, cornerRadius: ringCornerRadius(component.activeLineWidth), lineWidth: lineWidth, value: mappedProgress, transition: .immediate)
             } else {
                 progressTransition.setAlpha(view: self.indicatorView, alpha: 1.0)
                 

@@ -243,6 +243,8 @@ struct ScrolledToMessageId: Equatable {
 public final class ChatControllerImpl: TelegramBaseController, ChatController, GalleryHiddenMediaTarget, UIDropInteractionDelegate {    
     var validLayout: ContainerViewLayout?
     var chogramSendConfirmed = false
+    var chogramGhostSendObserver: NSObjectProtocol?
+    weak var chogramGhostSendToast: UndoOverlayController?
     
     public weak var parentController: ViewController?
     public weak var customNavigationController: NavigationController?
@@ -7114,6 +7116,9 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
             return value - 1
         }
 
+        if let chogramGhostSendObserver = self.chogramGhostSendObserver {
+            NotificationCenter.default.removeObserver(chogramGhostSendObserver)
+        }
         self.richTextCheckboxCompletionObserver?.dispose()
         for (_, timer) in self.richTextCheckboxDebounceTimers {
             timer.invalidate()
@@ -7714,6 +7719,7 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
     
     override public func loadDisplayNode() {
         self.loadDisplayNodeImpl()
+        self.chogramObserveGhostSend()
         self.galleryPresentationContext.view = self.view
         self.galleryPresentationContext.controllersUpdated = { [weak self] _ in
             guard let self else {

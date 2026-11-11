@@ -4433,6 +4433,10 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                     let onlineFrame: CGRect
                     if onlineIsVoiceChat {
                         onlineFrame = CGRect(origin: CGPoint(x: avatarFrame.width - onlineLayout.width + 1.0 - UIScreenPixel, y: avatarFrame.height - onlineLayout.height + 1.0 - UIScreenPixel), size: onlineLayout)
+                    } else if let avatarCornerRadius = chogramAvatarShapeCornerRadius(size: avatarFrame.width) {
+                        // Center the dot on the bottom-right corner arc (the 45 degree point), so it hugs a square avatar.
+                        let arcOffset = avatarCornerRadius * (1.0 - 0.70710678)
+                        onlineFrame = CGRect(origin: CGPoint(x: avatarFrame.width - arcOffset - onlineLayout.width * 0.5, y: avatarFrame.height - arcOffset - onlineLayout.height * 0.5), size: onlineLayout)
                     } else {
                         onlineFrame = CGRect(origin: CGPoint(x: avatarFrame.width - onlineLayout.width - 2.0, y: avatarFrame.height - onlineLayout.height - 2.0), size: onlineLayout)
                     }
@@ -5591,7 +5595,7 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
         self.avatarVideoNode?.updateVisibility(isVisible)
       
         if let videoNode = self.avatarVideoNode {
-            videoNode.updateLayout(size: self.avatarNode.frame.size, cornerRadius: self.avatarNode.frame.size.width / 2.0, transition: .immediate)
+            videoNode.updateLayout(size: self.avatarNode.frame.size, cornerRadius: chogramAvatarCornerRadius(size: self.avatarNode.frame.size.width), transition: .immediate)
             videoNode.frame = self.avatarNode.bounds
         }
     }

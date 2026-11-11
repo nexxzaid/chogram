@@ -339,9 +339,9 @@ final class PeerInfoAvatarTransformContainerNode: ASDisplayNode {
                 avatarCornerRadius = floor(avatarSize * 0.25)
                 isForum = true
             } else {
-                avatarCornerRadius = avatarSize / 2.0
+                avatarCornerRadius = chogramAvatarCornerRadius(size: avatarSize)
             }
-            self.cornerFraction = isForum ? 0.25 : 0.5
+            self.cornerFraction = isForum ? 0.25 : chogramAvatarCornerRadius(size: 1.0)
             if self.avatarNode.layer.cornerRadius != 0.0 {
                 ContainedViewLayoutTransition.animated(duration: 0.3, curve: .easeInOut).updateCornerRadius(layer: self.avatarNode.contentNode.layer, cornerRadius: avatarCornerRadius)
             } else {

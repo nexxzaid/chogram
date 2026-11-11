@@ -51,6 +51,11 @@ public func chogramAvatarCornerRadius(size: CGFloat) -> CGFloat {
     return size * 0.5 * chogramAvatarCorners
 }
 
+/// Corner radius for rings and masks drawn around an avatar; nil while avatars are circles.
+public func chogramAvatarShapeCornerRadius(size: CGFloat) -> CGFloat? {
+    return chogramAvatarIsRound ? nil : chogramAvatarCornerRadius(size: size)
+}
+
 var chogramAvatarIsRound: Bool {
     return chogramAvatarCorners >= 1.0
 }
@@ -61,6 +66,27 @@ func chogramAddAvatarPath(context: CGContext, rect: CGRect) {
     } else {
         context.addPath(UIBezierPath(roundedRect: rect, cornerRadius: rect.height * 0.5 * chogramAvatarCorners).cgPath)
     }
+}
+
+// Gradient fill in the avatar shape, for placeholder backgrounds behind animated icons.
+func chogramGradientAvatarImage(diameter: CGFloat, colors: NSArray) -> UIImage? {
+    if chogramAvatarIsRound {
+        return generateGradientFilledCircleImage(diameter: diameter, colors: colors)
+    }
+    return generateImage(CGSize(width: diameter, height: diameter), contextGenerator: { size, context in
+        let bounds = CGRect(origin: CGPoint(), size: size)
+        context.clear(bounds)
+        chogramAddAvatarPath(context: context, rect: bounds)
+        context.clip()
+        
+        var locations: [CGFloat] = []
+        for i in 0 ..< colors.count {
+            locations.append(CGFloat(i) / CGFloat(max(1, colors.count - 1)))
+        }
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let gradient = CGGradient(colorsSpace: colorSpace, colors: colors, locations: &locations)!
+        context.drawLinearGradient(gradient, start: CGPoint(), end: CGPoint(x: 0.0, y: size.height), options: CGGradientDrawingOptions())
+    })
 }
 
 func chogramFillAvatarPath(context: CGContext, rect: CGRect) {
@@ -298,8 +324,7 @@ public final class AvatarEditOverlayNode: ASDisplayNode {
         }
         
         context.beginPath()
-        context.addEllipse(in: CGRect(x: 0.0, y: 0.0, width: bounds.size.width, height:
-            bounds.size.height))
+        chogramAddAvatarPath(context: context, rect: CGRect(x: 0.0, y: 0.0, width: bounds.size.width, height: bounds.size.height))
         context.clip()
         
         context.setFillColor(UIColor(rgb: 0x000000, alpha: 0.4).cgColor)
@@ -546,7 +571,7 @@ public final class AvatarNode: ASDisplayNode {
                 }
                 let colors: NSArray = [backgroundColors.1.cgColor, backgroundColors.0.cgColor]
                 backgroundColor = backgroundColors.1.mixedWith(backgroundColors.0, alpha: 0.5)
-                animationBackgroundNode.image = generateGradientFilledCircleImage(diameter: self.imageNode.frame.width, colors: colors)
+                animationBackgroundNode.image = chogramGradientAvatarImage(diameter: self.imageNode.frame.width, colors: colors)
             }
             
             self.addSubnode(animationBackgroundNode)
@@ -593,7 +618,7 @@ public final class AvatarNode: ASDisplayNode {
             let animationBackgroundNode = ASImageNode()
             animationBackgroundNode.isUserInteractionEnabled = false
             animationBackgroundNode.frame = self.imageNode.frame
-            animationBackgroundNode.image = generateGradientFilledCircleImage(diameter: self.imageNode.frame.width, colors: AvatarNode.repostColors.map { $0.cgColor } as NSArray)
+            animationBackgroundNode.image = chogramGradientAvatarImage(diameter: self.imageNode.frame.width, colors: AvatarNode.repostColors.map { $0.cgColor } as NSArray)
             self.addSubnode(animationBackgroundNode)
             
             let animationNode = AnimationNode(animation: "anim_camera", colors: [:], scale: 0.082)
@@ -1516,7 +1541,8 @@ public final class AvatarNode: ASDisplayNode {
                         unseenCount: storyStats.unseenCount
                     ),
                     progress: mappedProgress,
-                    isRoundedRect: self.contentNode.clipStyle == .roundedRect || storyPresentationParams.forceRoundedRect
+                    isRoundedRect: self.contentNode.clipStyle == .roundedRect || storyPresentationParams.forceRoundedRect,
+                    cornerRadius: chogramAvatarShapeCornerRadius(size: indicatorSize.width)
                 )),
                 environment: {},
                 containerSize: indicatorSize

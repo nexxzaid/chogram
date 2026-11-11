@@ -911,8 +911,20 @@ public final class ChatListContainerNode: ASDisplayNode, ASGestureRecognizerDele
     public func switchToFilter(id: ChatListFilterTabEntryId, animated: Bool = true, completion: (() -> Void)? = nil) {
         self.onFilterSwitch?()
         var id = id
-        if id == .all, !self.availableFilters.contains(where: { $0.id == .all }), let fallback = self.availableFilters.first(where: { $0.id != self.selectedId }) {
-            id = fallback.id
+        if id == .all, !self.availableFilters.contains(where: { $0.id == .all }) {
+            // "All chats" is hidden: the first folder stands in for it. A caller that passes a completion is leaving
+            // the current tab (the folder is being deleted), so it gets another folder, or just its completion when
+            // there is none.
+            if let first = self.availableFilters.first, first.id != self.selectedId {
+                id = first.id
+            } else if let completion {
+                if let other = self.availableFilters.first(where: { $0.id != self.selectedId }) {
+                    id = other.id
+                } else {
+                    completion()
+                    return
+                }
+            }
         }
         if id != self.selectedId, let index = self.availableFilters.firstIndex(where: { $0.id == id }) {
             if let itemNode = self.itemNodes[id] {
@@ -1187,8 +1199,21 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
     var navigationBar: NavigationBar?
     let navigationBarView = ComponentView<Empty>()
     var chogramSnowView: ChogramSnowView?
+    // Snow is for the root chat list only: not the archive, forums or context-menu previews.
+    var isChogramSnowAllowed: Bool {
+        guard self.location == .chatList(groupId: .root), let controller = self.controller, !controller.previewing else {
+            return false
+        }
+        return true
+    }
+    var chogramSnowIsDark: Bool {
+        return self.presentationData.theme.overallDarkAppearance
+    }
+    var currentContainerLayoutSize: CGSize? {
+        return self.containerLayout?.layout.size
+    }
     weak var controller: ChatListControllerImpl?
-    
+
     private var toolbar: ComponentView<Empty>?
     var toolbarData: Toolbar?
     var toolbarActionSelected: ((ToolbarActionOption) -> Void)?
@@ -1450,8 +1475,9 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
         self.mainContainerNode.updatePresentationData(presentationData)
         self.inlineStackContainerNode?.updatePresentationData(presentationData)
         self.searchDisplayController?.updatePresentationData(presentationData)
+        self.updateChogramSnow()
     }
-    
+
     private func updateNavigationBar(layout: ContainerViewLayout, deferScrollApplication: Bool, transition: ComponentTransition) -> (navigationHeight: CGFloat, storiesInset: CGFloat) {
         let headerContent = self.controller?.updateHeaderContent()
         
@@ -1796,7 +1822,7 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
                 self.view.addSubview(navigationBarComponentView)
             }
             transition.setFrame(view: navigationBarComponentView, frame: CGRect(origin: CGPoint(), size: navigationBarSize))
-            self.updateChogramSnow(headerSize: navigationBarSize)
+            self.updateChogramSnow(size: layout.size)
             
             return (navigationBarSize.height, 0.0)
         } else {

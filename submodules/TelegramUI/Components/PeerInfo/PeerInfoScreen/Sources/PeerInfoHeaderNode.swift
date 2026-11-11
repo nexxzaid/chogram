@@ -1990,7 +1990,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
         }
                 
-        let avatarCornerRadius: CGFloat = isForum ? floor(avatarSize * 0.25) : avatarSize / 2.0
+        let avatarCornerRadius: CGFloat = isForum ? floor(avatarSize * 0.25) : chogramAvatarCornerRadius(size: avatarSize)
  
         if self.isAvatarExpanded {
             self.avatarListNode.listContainerNode.isHidden = false

@@ -15,6 +15,7 @@ import StoryContainerScreen
 import MultilineTextComponent
 import HierarchyTrackingLayer
 import EmojiStatusComponent
+import AvatarStoryIndicatorComponent
 
 private func calculateCircleIntersection(center: CGPoint, otherCenter: CGPoint, radius: CGFloat) -> (point1Angle: CGFloat, point2Angle: CGFloat)? {
     let distanceVector = CGPoint(x: otherCenter.x - center.x, y: otherCenter.y - center.y)
@@ -135,6 +136,74 @@ private func calculateMergingCircleShape(center: CGPoint, leftCenter: CGPoint?, 
     return path
 }
 
+// Rounded-square counterpart of calculateMergingCircleShape: one dash per story, split into seen and unseen paths.
+private func calculateShapedRingPath(center: CGPoint, radius: CGFloat, cornerRadius: CGFloat, totalCount: Int, unseenCount: Int, isSeen: Bool, segmentFraction: CGFloat) -> CGPath {
+    var totalCount = totalCount
+    var unseenCount = unseenCount
+    
+    let totalCountNorm = CGFloat(totalCount) / 30.0
+    if totalCountNorm > 1.0 {
+        totalCount = Int(CGFloat(totalCount) / totalCountNorm)
+        unseenCount = Int(CGFloat(unseenCount) / totalCountNorm)
+    }
+    let segmentCount = max(totalCount, 1)
+    
+    if isSeen {
+        if unseenCount >= totalCount {
+            return CGMutablePath()
+        }
+    } else {
+        if unseenCount == 0 {
+            return CGMutablePath()
+        }
+    }
+    
+    let rect = CGRect(origin: CGPoint(x: center.x - radius, y: center.y - radius), size: CGSize(width: radius * 2.0, height: radius * 2.0))
+    let fullPath = AvatarRingShape.path(rect: rect, cornerRadius: cornerRadius)
+    if segmentCount == 1 {
+        return fullPath
+    }
+    
+    let perimeter = AvatarRingShape.perimeter(rect: rect, cornerRadius: cornerRadius)
+    let spacing: CGFloat = 4.0 * segmentFraction
+    let segmentLength = (perimeter - spacing * CGFloat(segmentCount)) / CGFloat(segmentCount)
+    if segmentLength <= 0.0 || spacing <= 0.0 {
+        return fullPath
+    }
+    
+    // The dashed outline splits into one subpath per story, clockwise from the top center.
+    let dashedPath = AvatarRingShape.progressPath(rect: rect, cornerRadius: cornerRadius).copy(dashingWithPhase: segmentLength + spacing * 0.5, lengths: [segmentLength, spacing])
+    var subpaths: [CGMutablePath] = []
+    dashedPath.applyWithBlock({ element in
+        switch element.pointee.type {
+        case .moveToPoint:
+            let subpath = CGMutablePath()
+            subpath.move(to: element.pointee.points[0])
+            subpaths.append(subpath)
+        case .addLineToPoint:
+            subpaths.last?.addLine(to: element.pointee.points[0])
+        case .addQuadCurveToPoint:
+            subpaths.last?.addQuadCurve(to: element.pointee.points[1], control: element.pointee.points[0])
+        case .addCurveToPoint:
+            subpaths.last?.addCurve(to: element.pointee.points[2], control1: element.pointee.points[0], control2: element.pointee.points[1])
+        case .closeSubpath:
+            subpaths.last?.closeSubpath()
+        @unknown default:
+            break
+        }
+    })
+    
+    let result = CGMutablePath()
+    for i in 0 ..< subpaths.count {
+        let index = min(i, segmentCount - 1)
+        let isSeenSegment = index <= segmentCount - unseenCount - 1
+        if isSeenSegment == isSeen {
+            result.addPath(subpaths[i])
+        }
+    }
+    return result
+}
+
 private final class StoryProgressLayer: HierarchyTrackingLayer {
     enum Value: Equatable {
         case indefinite
@@ -146,8 +215,10 @@ private final class StoryProgressLayer: HierarchyTrackingLayer {
         var lineWidth: CGFloat
         var radius: CGFloat
         var value: Value
+        var cornerRadius: CGFloat?
     }
     private var currentParams: Params?
+    private var isShaped: Bool = false
     
     private let uploadProgressLayer = SimpleShapeLayer()
     
@@ -197,6 +268,29 @@ private final class StoryProgressLayer: HierarchyTrackingLayer {
         self.uploadProgressLayer.path = nil
     }
     
+    private func configureShape(shaped: Bool) {
+        self.isShaped = shaped
+        self.indefiniteDashLayer.path = nil
+        self.uploadProgressLayer.path = nil
+        self.indefiniteDashLayer.removeAllAnimations()
+        self.uploadProgressLayer.removeAllAnimations()
+        self.indefiniteReplicatorLayer.removeAllAnimations()
+        if shaped {
+            // A rounded square cannot be rotated like a circle: the dash travels along the path instead.
+            self.indefiniteDashLayer.strokeEnd = 1.0
+            self.indefiniteReplicatorLayer.instanceCount = 1
+            self.indefiniteReplicatorLayer.instanceTransform = CATransform3DIdentity
+            self.indefiniteReplicatorLayer.transform = CATransform3DIdentity
+        } else {
+            self.indefiniteDashLayer.strokeEnd = 0.0333
+            let count = 1.0 / self.indefiniteDashLayer.strokeEnd
+            let angle = (2.0 * Double.pi) / Double(count)
+            self.indefiniteReplicatorLayer.instanceCount = Int(count)
+            self.indefiniteReplicatorLayer.instanceTransform = CATransform3DMakeRotation(CGFloat(angle), 0.0, 0.0, 1.0)
+            self.indefiniteReplicatorLayer.transform = CATransform3DMakeRotation(-.pi / 2.0, 0.0, 0.0, 1.0)
+        }
+    }
+    
     func updateAnimations(transition: ComponentTransition) {
         guard let params = self.currentParams else {
             return
@@ -223,7 +317,9 @@ private final class StoryProgressLayer: HierarchyTrackingLayer {
                 }
             }
             transition.setShapeLayerStrokeEnd(layer: self.uploadProgressLayer, strokeEnd: CGFloat(progress))
-            if self.uploadProgressLayer.animation(forKey: "rotation") == nil {
+            if self.isShaped {
+                // No rotation: the path already starts at the top center.
+            } else if self.uploadProgressLayer.animation(forKey: "rotation") == nil {
                 let rotationAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
                 rotationAnimation.duration = 2.0
                 rotationAnimation.fromValue = NSNumber(value: Float(0.0))
@@ -251,7 +347,25 @@ private final class StoryProgressLayer: HierarchyTrackingLayer {
                     self.indefiniteReplicatorLayer.animateAlpha(from: 0.0, to: 1.0, duration: 0.2)
                 }
             }
-            if self.indefiniteReplicatorLayer.animation(forKey: "rotation") == nil {
+            if self.isShaped {
+                if self.indefiniteDashLayer.animation(forKey: "shapedStart") == nil {
+                    let startAnimation = CAKeyframeAnimation(keyPath: "strokeStart")
+                    startAnimation.keyTimes = [0.0, 0.4, 1.0]
+                    startAnimation.values = [0.0, 0.0, 1.0]
+                    startAnimation.duration = 1.6
+                    startAnimation.repeatCount = .infinity
+                    startAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    self.indefiniteDashLayer.add(startAnimation, forKey: "shapedStart")
+                    
+                    let endAnimation = CAKeyframeAnimation(keyPath: "strokeEnd")
+                    endAnimation.keyTimes = [0.0, 0.6, 1.0]
+                    endAnimation.values = [0.0, 1.0, 1.0]
+                    endAnimation.duration = 1.6
+                    endAnimation.repeatCount = .infinity
+                    endAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    self.indefiniteDashLayer.add(endAnimation, forKey: "shapedEnd")
+                }
+            } else if self.indefiniteReplicatorLayer.animation(forKey: "rotation") == nil {
                 let rotationAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
                 rotationAnimation.duration = 4.0
                 rotationAnimation.fromValue = NSNumber(value: -.pi / 2.0)
@@ -260,7 +374,7 @@ private final class StoryProgressLayer: HierarchyTrackingLayer {
                 rotationAnimation.timingFunction = CAMediaTimingFunction(name: CAMediaTimingFunctionName.linear)
                 self.indefiniteReplicatorLayer.add(rotationAnimation, forKey: "rotation")
             }
-            if self.indefiniteDashLayer.animation(forKey: "dash") == nil {
+            if !self.isShaped && self.indefiniteDashLayer.animation(forKey: "dash") == nil {
                 let dashAnimation = CAKeyframeAnimation(keyPath: "strokeStart")
                 dashAnimation.keyTimes = [0.0, 0.45, 0.55, 1.0]
                 dashAnimation.values = [
@@ -277,15 +391,19 @@ private final class StoryProgressLayer: HierarchyTrackingLayer {
         }
     }
     
-    func update(size: CGSize, lineWidth: CGFloat, radius: CGFloat, value: Value, transition: ComponentTransition) {
+    func update(size: CGSize, lineWidth: CGFloat, radius: CGFloat, cornerRadius: CGFloat?, value: Value, transition: ComponentTransition) {
         let params = Params(
             size: size,
             lineWidth: lineWidth,
             radius: radius,
-            value: value
+            value: value,
+            cornerRadius: cornerRadius
         )
         if self.currentParams == params {
             return
+        }
+        if (cornerRadius != nil) != self.isShaped || (cornerRadius != nil && self.currentParams?.cornerRadius != cornerRadius) {
+            self.configureShape(shaped: cornerRadius != nil)
         }
         if self.currentParams?.radius != params.radius {
             self.uploadProgressLayer.path = nil
@@ -297,16 +415,25 @@ private final class StoryProgressLayer: HierarchyTrackingLayer {
         self.indefiniteDashLayer.lineWidth = lineWidth
         
         let bounds = CGRect(origin: .zero, size: size)
+        let ringRect = CGRect(origin: CGPoint(x: (size.width - radius * 2.0) * 0.5, y: (size.height - radius * 2.0) * 0.5), size: CGSize(width: radius * 2.0, height: radius * 2.0))
         if self.uploadProgressLayer.path == nil {
             let path = CGMutablePath()
-            path.addEllipse(in: CGRect(origin: CGPoint(x: (size.width - radius * 2.0) * 0.5, y: (size.height - radius * 2.0) * 0.5), size: CGSize(width: radius * 2.0, height: radius * 2.0)))
+            if cornerRadius != nil {
+                path.addPath(AvatarRingShape.progressPath(rect: ringRect, cornerRadius: cornerRadius))
+            } else {
+                path.addEllipse(in: ringRect)
+            }
             self.uploadProgressLayer.path = path
             self.uploadProgressLayer.frame = bounds
         }
         
         if self.indefiniteDashLayer.path == nil {
             let path = CGMutablePath()
-            path.addEllipse(in: CGRect(origin: CGPoint(x: (size.width - radius * 2.0) * 0.5, y: (size.height - radius * 2.0) * 0.5), size: CGSize(width: radius * 2.0, height: radius * 2.0)))
+            if cornerRadius != nil {
+                path.addPath(AvatarRingShape.progressPath(rect: ringRect, cornerRadius: cornerRadius))
+            } else {
+                path.addEllipse(in: ringRect)
+            }
             self.indefiniteDashLayer.path = path
             self.indefiniteReplicatorLayer.frame = bounds
             self.indefiniteDashLayer.frame = bounds
@@ -696,8 +823,24 @@ public final class StoryPeerListItemComponent: Component {
             
             let avatarSize = CGSize(width: 52.0, height: 52.0)
             
+            let avatarCornerRadius = chogramAvatarShapeCornerRadius(size: avatarSize.width)
+            
             let avatarBackgroundImage: UIImage?
-            if let sharedAvatarBackgroundImage = sharedAvatarBackgroundImage, sharedAvatarBackgroundImage.size.width == avatarSize.width {
+            if let avatarCornerRadius {
+                // The backdrop is drawn at its final size (avatar plus 3pt gap) so the corner radius stays exact.
+                let backgroundInset = 3.0 + UIScreenPixel * 2.0
+                let backgroundSize = CGSize(width: avatarSize.width + backgroundInset * 2.0, height: avatarSize.height + backgroundInset * 2.0)
+                if let current = self.avatarBackgroundView.image, current.size == backgroundSize {
+                    avatarBackgroundImage = current
+                } else {
+                avatarBackgroundImage = generateImage(backgroundSize, rotatedContext: { size, context in
+                    context.clear(CGRect(origin: CGPoint(), size: size))
+                    context.setFillColor(UIColor.white.cgColor)
+                    context.addPath(AvatarRingShape.path(rect: CGRect(origin: CGPoint(), size: size), cornerRadius: avatarCornerRadius + backgroundInset))
+                    context.fillPath()
+                })?.withRenderingMode(.alwaysTemplate)
+                }
+            } else if let sharedAvatarBackgroundImage = sharedAvatarBackgroundImage, sharedAvatarBackgroundImage.size.width == avatarSize.width {
                 avatarBackgroundImage = sharedAvatarBackgroundImage
             } else {
                 avatarBackgroundImage = generateFilledCircleImage(diameter: avatarSize.width, color: .white)?.withRenderingMode(.alwaysTemplate)
@@ -933,8 +1076,16 @@ public final class StoryPeerListItemComponent: Component {
                 mappedRightCenter = CGPoint(x: indicatorCenter.x + rightNeighborDistance.x * (1.0 / effectiveScale), y: indicatorCenter.y + rightNeighborDistance.y * (1.0 / effectiveScale))
             }
             
+            let ringRadius = indicatorRadius - indicatorLineUnseenWidth * 0.5
+            // Ring corner = avatar corner plus the gap between avatar edge and ring center line.
+            let ringCornerRadius: CGFloat? = avatarCornerRadius.map { $0 + max(0.0, ringRadius - avatarSize.width * 0.5) }
+            
             let avatarPath = CGMutablePath()
-            avatarPath.addEllipse(in: CGRect(origin: CGPoint(), size: avatarSize).insetBy(dx: -1.0, dy: -1.0))
+            if let avatarCornerRadius {
+                avatarPath.addPath(AvatarRingShape.path(rect: CGRect(origin: CGPoint(), size: avatarSize).insetBy(dx: -1.0, dy: -1.0), cornerRadius: avatarCornerRadius + 1.0))
+            } else {
+                avatarPath.addEllipse(in: CGRect(origin: CGPoint(), size: avatarSize).insetBy(dx: -1.0, dy: -1.0))
+            }
             if let avatarLiveBadgeView = self.avatarLiveBadgeView {
                 let avatarLiveBadgeFrame = avatarLiveBadgeView.frame
                 if avatarLiveBadgeFrame.height > 4.0 {
@@ -943,13 +1094,22 @@ public final class StoryPeerListItemComponent: Component {
             } else if component.peer.id == component.context.account.peerId && !component.hasItems && component.ringAnimation == nil {
                 let cutoutSize: CGFloat = 18.0 + UIScreenPixel * 2.0
                 avatarPath.addEllipse(in: CGRect(origin: CGPoint(x: avatarSize.width - cutoutSize + UIScreenPixel, y: avatarSize.height - 1.0 - cutoutSize + UIScreenPixel), size: CGSize(width: cutoutSize, height: cutoutSize)))
-            } else if let mappedLeftCenter {
+            } else if let mappedLeftCenter, avatarCornerRadius == nil {
                 avatarPath.addEllipse(in: CGRect(origin: CGPoint(), size: avatarSize).insetBy(dx: -indicatorLineSeenWidth * 1.4, dy: -indicatorLineSeenWidth * 1.4).offsetBy(dx: -abs(indicatorCenter.x - mappedLeftCenter.x), dy: -abs(indicatorCenter.y - mappedLeftCenter.y)))
             }
             ComponentTransition.immediate.setShapeLayerPath(layer: self.avatarShapeLayer, path: avatarPath)
             
-            ComponentTransition.immediate.setShapeLayerPath(layer: self.indicatorShapeSeenLayer, path: calculateMergingCircleShape(center: indicatorCenter, leftCenter: mappedLeftCenter, rightCenter: mappedRightCenter, radius: indicatorRadius - indicatorLineUnseenWidth * 0.5, totalCount: component.hasLiveItems ? 1 : component.totalCount, unseenCount: component.hasLiveItems ? 1 : component.unseenCount, isSeen: true, segmentFraction: component.expandedAlphaFraction, rotationFraction: component.expandEffectFraction))
-            ComponentTransition.immediate.setShapeLayerPath(layer: self.indicatorShapeUnseenLayer, path: calculateMergingCircleShape(center: indicatorCenter, leftCenter: mappedLeftCenter, rightCenter: mappedRightCenter, radius: indicatorRadius - indicatorLineUnseenWidth * 0.5, totalCount: component.hasLiveItems ? 1 : component.totalCount, unseenCount: component.hasLiveItems ? 1 : component.unseenCount, isSeen: false, segmentFraction: component.expandedAlphaFraction, rotationFraction: component.expandEffectFraction))
+            if let ringCornerRadius {
+                // Neighbour cutouts are circle intersections, so the rounded ring is drawn whole.
+                let ringCenter = indicatorCenter
+                let ringTotalCount = component.hasLiveItems ? 1 : component.totalCount
+                let ringUnseenCount = component.hasLiveItems ? 1 : component.unseenCount
+                ComponentTransition.immediate.setShapeLayerPath(layer: self.indicatorShapeSeenLayer, path: calculateShapedRingPath(center: ringCenter, radius: ringRadius, cornerRadius: ringCornerRadius, totalCount: ringTotalCount, unseenCount: ringUnseenCount, isSeen: true, segmentFraction: component.expandedAlphaFraction))
+                ComponentTransition.immediate.setShapeLayerPath(layer: self.indicatorShapeUnseenLayer, path: calculateShapedRingPath(center: ringCenter, radius: ringRadius, cornerRadius: ringCornerRadius, totalCount: ringTotalCount, unseenCount: ringUnseenCount, isSeen: false, segmentFraction: component.expandedAlphaFraction))
+            } else {
+                ComponentTransition.immediate.setShapeLayerPath(layer: self.indicatorShapeSeenLayer, path: calculateMergingCircleShape(center: indicatorCenter, leftCenter: mappedLeftCenter, rightCenter: mappedRightCenter, radius: indicatorRadius - indicatorLineUnseenWidth * 0.5, totalCount: component.hasLiveItems ? 1 : component.totalCount, unseenCount: component.hasLiveItems ? 1 : component.unseenCount, isSeen: true, segmentFraction: component.expandedAlphaFraction, rotationFraction: component.expandEffectFraction))
+                ComponentTransition.immediate.setShapeLayerPath(layer: self.indicatorShapeUnseenLayer, path: calculateMergingCircleShape(center: indicatorCenter, leftCenter: mappedLeftCenter, rightCenter: mappedRightCenter, radius: indicatorRadius - indicatorLineUnseenWidth * 0.5, totalCount: component.hasLiveItems ? 1 : component.totalCount, unseenCount: component.hasLiveItems ? 1 : component.unseenCount, isSeen: false, segmentFraction: component.expandedAlphaFraction, rotationFraction: component.expandEffectFraction))
+            }
             
             let titleString: String
             if component.peer.id == component.context.account.peerId {
@@ -1092,9 +1252,9 @@ public final class StoryPeerListItemComponent: Component {
                     } else {
                         progressTransition = .easeInOut(duration: 0.3)
                     }
-                    progressLayer.update(size: progressFrame.size, lineWidth: indicatorLineUnseenWidth, radius: indicatorRadius - indicatorLineUnseenWidth * 0.5, value: .progress(progress), transition: progressTransition)
+                    progressLayer.update(size: progressFrame.size, lineWidth: indicatorLineUnseenWidth, radius: indicatorRadius - indicatorLineUnseenWidth * 0.5, cornerRadius: ringCornerRadius, value: .progress(progress), transition: progressTransition)
                 case .loading:
-                    progressLayer.update(size: progressFrame.size, lineWidth: indicatorLineUnseenWidth, radius: indicatorRadius - indicatorLineUnseenWidth * 0.5, value: .indefinite, transition: transition)
+                    progressLayer.update(size: progressFrame.size, lineWidth: indicatorLineUnseenWidth, radius: indicatorRadius - indicatorLineUnseenWidth * 0.5, cornerRadius: ringCornerRadius, value: .indefinite, transition: transition)
                 }
                 
                 self.indicatorShapeSeenLayer.opacity = 0.0

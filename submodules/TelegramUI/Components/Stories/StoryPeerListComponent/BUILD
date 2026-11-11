@@ -63,6 +63,7 @@ swift_library(
         "//submodules/SSignalKit/SwiftSignalKit",
         "//submodules/TelegramPresentationData",
         "//submodules/AvatarNode",
+        "//submodules/TelegramUI/Components/Stories/AvatarStoryIndicatorComponent",
         "//submodules/ContextUI",
         "//submodules/TelegramUI/Components/Stories/StoryContainerScreen",
         "//submodules/Components/MultilineTextComponent",
