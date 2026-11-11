@@ -63,34 +63,39 @@ func chogramParseNumber(_ raw: String) -> Double? {
 func chogramFindMoneyAmounts(in text: String) -> [ChogramMoneyAmount] {
     let nsText = text as NSString
     let fullRange = NSRange(location: 0, length: nsText.length)
-    var result: [ChogramMoneyAmount] = []
-    var taken: [NSRange] = []
     
-    func add(_ regex: NSRegularExpression, numberGroup: Int, code: String) {
+    // Prefix ("$50") and suffix ("50 usd") forms are collected together and resolved left to right:
+    // in "50€ 50$" the € belongs to the first number, not to the "€ 50" that starts inside it.
+    var candidates: [(range: NSRange, amount: ChogramMoneyAmount)] = []
+    func collect(_ pattern: String, code: String) {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return
+        }
         for match in regex.matches(in: text, options: [], range: fullRange) {
-            if taken.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) {
+            guard let value = chogramParseNumber(nsText.substring(with: match.range(at: 1))), value > 0 else {
                 continue
             }
-            guard let value = chogramParseNumber(nsText.substring(with: match.range(at: numberGroup))), value > 0 else {
-                continue
-            }
-            taken.append(match.range)
-            result.append(ChogramMoneyAmount(value: value, code: code, location: match.range.location))
+            candidates.append((match.range, ChogramMoneyAmount(value: value, code: code, location: match.range.location)))
         }
     }
+    for currency in chogramCurrencies {
+        collect("(?<![\\p{L}])(?:\(currency.pattern))\\s?(\(chogramNumberPattern))(?![\\d])", code: currency.code)
+        collect("(?<![\\d.,])(\(chogramNumberPattern))\\s?(?:\(currency.pattern))(?![\\p{L}])", code: currency.code)
+    }
+    candidates.sort(by: { lhs, rhs in
+        if lhs.range.location != rhs.range.location {
+            return lhs.range.location < rhs.range.location
+        }
+        return lhs.range.length > rhs.range.length
+    })
     
-    // Prefix forms first ("$50"), then suffix forms ("50 usd").
-    for currency in chogramCurrencies {
-        if let regex = try? NSRegularExpression(pattern: "(?<![\\p{L}])(?:\(currency.pattern))\\s?(\(chogramNumberPattern))(?![\\d])", options: [.caseInsensitive]) {
-            add(regex, numberGroup: 1, code: currency.code)
-        }
+    var result: [ChogramMoneyAmount] = []
+    var takenEnd = 0
+    for candidate in candidates where candidate.range.location >= takenEnd {
+        result.append(candidate.amount)
+        takenEnd = candidate.range.location + candidate.range.length
     }
-    for currency in chogramCurrencies {
-        if let regex = try? NSRegularExpression(pattern: "(?<![\\d.,])(\(chogramNumberPattern))\\s?(?:\(currency.pattern))(?![\\p{L}])", options: [.caseInsensitive]) {
-            add(regex, numberGroup: 1, code: currency.code)
-        }
-    }
-    return result.sorted(by: { $0.location < $1.location })
+    return result
 }
 
 private let chogramRatesKey = "chogram.currencyRates"
