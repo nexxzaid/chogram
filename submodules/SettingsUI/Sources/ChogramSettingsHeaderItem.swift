@@ -7,7 +7,7 @@ import TelegramPresentationData
 import ItemListUI
 import AppBundle
 
-private let logoSize: CGFloat = 88.0
+private let logoSize: CGFloat = 52.0
 
 final class ChogramSettingsHeaderItem: ListViewItem, ItemListItem {
     let presentationData: ItemListPresentationData
@@ -96,17 +96,15 @@ final class ChogramSettingsHeaderItemNode: ListViewItemNode, ItemListItemNode {
 
         return { [weak self] item, params, neighbors in
             let theme = item.presentationData.theme
-            let constrainedSize = CGSize(width: params.width - params.leftInset - params.rightInset - 32.0, height: CGFloat.greatestFiniteMagnitude)
+            let logoX = params.leftInset + 24.0
+            let textX = logoX + logoSize + 14.0
+            let constrainedSize = CGSize(width: max(1.0, params.width - params.rightInset - textX - 24.0), height: CGFloat.greatestFiniteMagnitude)
+            let (titleLayout, titleApply) = makeTitleLayout(TextNodeLayoutArguments(attributedString: NSAttributedString(string: item.title, font: Font.bold(22.0), textColor: theme.list.itemPrimaryTextColor), backgroundColor: nil, maximumNumberOfLines: 1, truncationType: .end, constrainedSize: constrainedSize, alignment: .natural, cutout: nil, insets: UIEdgeInsets()))
+            let (subtitleLayout, subtitleApply) = makeSubtitleLayout(TextNodeLayoutArguments(attributedString: NSAttributedString(string: item.subtitle, font: Font.regular(14.0), textColor: theme.list.itemSecondaryTextColor), backgroundColor: nil, maximumNumberOfLines: 2, truncationType: .end, constrainedSize: constrainedSize, alignment: .natural, cutout: nil, insets: UIEdgeInsets()))
 
-            let (titleLayout, titleApply) = makeTitleLayout(TextNodeLayoutArguments(attributedString: NSAttributedString(string: item.title, font: Font.bold(22.0), textColor: theme.list.itemPrimaryTextColor), backgroundColor: nil, maximumNumberOfLines: 1, truncationType: .end, constrainedSize: constrainedSize, alignment: .center, cutout: nil, insets: UIEdgeInsets()))
-            let (subtitleLayout, subtitleApply) = makeSubtitleLayout(TextNodeLayoutArguments(attributedString: NSAttributedString(string: item.subtitle, font: Font.regular(14.0), textColor: theme.list.freeTextColor), backgroundColor: nil, maximumNumberOfLines: 1, truncationType: .end, constrainedSize: constrainedSize, alignment: .center, cutout: nil, insets: UIEdgeInsets()))
-
-            let topInset: CGFloat = 8.0
-            let logoSpacing: CGFloat = 12.0
-            let subtitleSpacing: CGFloat = 2.0
-            let bottomInset: CGFloat = 6.0
-
-            let contentSize = CGSize(width: params.width, height: topInset + logoSize + logoSpacing + titleLayout.size.height + subtitleSpacing + subtitleLayout.size.height + bottomInset)
+            let subtitleSpacing: CGFloat = 3.0
+            let textHeight = titleLayout.size.height + subtitleSpacing + subtitleLayout.size.height
+            let contentSize = CGSize(width: params.width, height: max(logoSize, textHeight) + 20.0)
             let layout = ListViewItemNodeLayout(contentSize: contentSize, insets: itemListNeighborsGroupedInsets(neighbors, params))
 
             return (layout, {
@@ -117,10 +115,10 @@ final class ChogramSettingsHeaderItemNode: ListViewItemNode, ItemListItemNode {
                 let _ = subtitleApply()
                 self.logoNode.image = UIImage(bundleImageName: item.logoImageName)
 
-                let titleY = topInset + logoSize + logoSpacing
-                self.logoNode.frame = CGRect(origin: CGPoint(x: floorToScreenPixels((params.width - logoSize) * 0.5), y: topInset), size: CGSize(width: logoSize, height: logoSize))
-                self.titleNode.frame = CGRect(origin: CGPoint(x: floorToScreenPixels((params.width - titleLayout.size.width) * 0.5), y: titleY), size: titleLayout.size)
-                self.subtitleNode.frame = CGRect(origin: CGPoint(x: floorToScreenPixels((params.width - subtitleLayout.size.width) * 0.5), y: titleY + titleLayout.size.height + subtitleSpacing), size: subtitleLayout.size)
+                let titleY = floorToScreenPixels((contentSize.height - textHeight) * 0.5)
+                self.logoNode.frame = CGRect(x: logoX, y: floorToScreenPixels((contentSize.height - logoSize) * 0.5), width: logoSize, height: logoSize)
+                self.titleNode.frame = CGRect(origin: CGPoint(x: textX, y: titleY), size: titleLayout.size)
+                self.subtitleNode.frame = CGRect(origin: CGPoint(x: textX, y: titleY + titleLayout.size.height + subtitleSpacing), size: subtitleLayout.size)
             })
         }
     }

@@ -29,14 +29,15 @@ private enum ChogramNotificationsEntry: ItemListNodeEntry {
     case status(Bool)
     case enable(Bool)
     case disable
-    case steps
+    case setupHeader
+    case step(Int32, String, String)
     case footer
 
     var section: ItemListSectionId {
         switch self {
         case .status, .enable, .disable:
             return 0
-        case .steps, .footer:
+        case .setupHeader, .step, .footer:
             return 1
         }
     }
@@ -49,10 +50,12 @@ private enum ChogramNotificationsEntry: ItemListNodeEntry {
             return 1
         case .disable:
             return 2
-        case .steps:
+        case .setupHeader:
             return 3
+        case let .step(index, _, _):
+            return 4 + index
         case .footer:
-            return 4
+            return 10
         }
     }
 
@@ -73,8 +76,10 @@ private enum ChogramNotificationsEntry: ItemListNodeEntry {
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: "Отключить", kind: .destructive, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.disable()
             })
-        case .steps:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Как включить:\n1. Нажми «Включить уведомления», откроется страница Чограма.\n2. Внизу нажми «Поделиться» → «На экран „Домой“» → «Добавить».\n3. Открой новую иконку «Чограм» с экрана «Домой» и нажми «Разрешить».\n4. Нажми «Подключить к Чограму» — откроется Чограм и покажет «Уведомления подключены»."), sectionId: self.section)
+        case .setupHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "ПОДКЛЮЧЕНИЕ", sectionId: self.section)
+        case let .step(index, title, detail):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: "\(index + 1). \(title)", label: detail, labelStyle: .multilineDetailText, sectionId: self.section, style: .blocks, disclosureStyle: .none, action: nil)
         case .footer:
             return ItemListTextItem(presentationData: presentationData, text: .plain("Уведомления присылает сам Telegram, наш сервер к аккаунту не подключается. Иконку на экране «Домой» не удаляй, иначе уведомления перестанут приходить; её можно убрать в папку. Нужна iOS 16.4 или новее."), sectionId: self.section)
         }
@@ -122,12 +127,19 @@ public func chogramNotificationsController(context: AccountContext) -> ViewContr
         statePromise.get()
     )
     |> map { presentationData, isConnected -> (ItemListControllerState, (ItemListNodeState, Any)) in
+        let presentationData = chogramPresentationData(presentationData)
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Уведомления"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
         var entries: [ChogramNotificationsEntry] = [.status(isConnected), .enable(isConnected)]
         if isConnected {
             entries.append(.disable)
         }
-        entries.append(.steps)
+        entries.append(contentsOf: [
+            .setupHeader,
+            .step(0, "Открой страницу", "Нажми «Включить уведомления» вверху."),
+            .step(1, "Добавь на экран «Домой»", "Выбери «Поделиться» → «На экран „Домой“» → «Добавить»."),
+            .step(2, "Разреши уведомления", "Открой иконку Чограма с экрана «Домой»."),
+            .step(3, "Подключи к Чограму", "Нажми «Подключить к Чограму» и дождись подтверждения.")
+        ])
         entries.append(.footer)
         let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: entries, style: .blocks, animateChanges: true)
         return (controllerState, (listState, arguments))

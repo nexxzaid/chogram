@@ -98,11 +98,13 @@ private func chogramDeleteFont(_ font: ChogramFontEntry) {
 }
 
 private final class ChogramFontsArguments {
+    let context: AccountContext
     let select: (ChogramFontEntry?) -> Void
     let delete: (ChogramFontEntry) -> Void
     let upload: () -> Void
 
-    init(select: @escaping (ChogramFontEntry?) -> Void, delete: @escaping (ChogramFontEntry) -> Void, upload: @escaping () -> Void) {
+    init(context: AccountContext, select: @escaping (ChogramFontEntry?) -> Void, delete: @escaping (ChogramFontEntry) -> Void, upload: @escaping () -> Void) {
+        self.context = context
         self.select = select
         self.delete = delete
         self.upload = upload
@@ -110,6 +112,7 @@ private final class ChogramFontsArguments {
 }
 
 private enum ChogramFontsEntry: ItemListNodeEntry {
+    case preview(String?)
     case header
     case system(Bool)
     case font(Int32, ChogramFontEntry, Bool)
@@ -127,6 +130,8 @@ private enum ChogramFontsEntry: ItemListNodeEntry {
 
     var stableId: Int32 {
         switch self {
+        case .preview:
+            return -1
         case .header:
             return 0
         case .system:
@@ -147,6 +152,10 @@ private enum ChogramFontsEntry: ItemListNodeEntry {
     func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
         let arguments = arguments as! ChogramFontsArguments
         switch self {
+        case let .preview(fontName):
+            let font = fontName.flatMap { UIFont(name: $0, size: 22.0) } ?? UIFont.systemFont(ofSize: 22.0)
+            let sample = NSAttributedString(string: "Чограм · Привет!", font: font, textColor: presentationData.theme.list.itemPrimaryTextColor)
+            return ItemListTextItem(presentationData: presentationData, text: .custom(context: arguments.context, string: sample), sectionId: self.section)
         case .header:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "ШРИФТ", sectionId: self.section)
         case let .system(checked):
@@ -177,7 +186,7 @@ func chogramFontsController(context: AccountContext) -> ViewController {
 
     var presentControllerImpl: ((ViewController) -> Void)?
 
-    let arguments = ChogramFontsArguments(select: { font in
+    let arguments = ChogramFontsArguments(context: context, select: { font in
         chogramSelectFont(font)
         reload()
     }, delete: { font in
@@ -205,8 +214,13 @@ func chogramFontsController(context: AccountContext) -> ViewController {
         statePromise.get()
     )
     |> map { presentationData, state -> (ItemListControllerState, (ItemListNodeState, Any)) in
+        let presentationData = chogramPresentationData(presentationData)
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Шрифт"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
-        var entries: [ChogramFontsEntry] = [.header, .system(state.selected == nil)]
+        let selectedFont = state.fonts.first { $0.file == state.selected }
+        if let selectedFont, UIFont(name: selectedFont.postScriptName, size: 22.0) == nil, let directory = chogramFontsDirectory() {
+            CTFontManagerRegisterFontsForURL(directory.appendingPathComponent(selectedFont.file) as CFURL, .process, nil)
+        }
+        var entries: [ChogramFontsEntry] = [.preview(selectedFont?.postScriptName), .header, .system(state.selected == nil)]
         for (index, font) in state.fonts.enumerated() {
             entries.append(.font(Int32(index), font, state.selected == font.file))
         }

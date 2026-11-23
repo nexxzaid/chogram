@@ -113,7 +113,7 @@ final class ChogramValueSliderItemNode: ChogramBlockItemNode {
 // Shows a sticker at the chosen size next to a dashed outline of the standard one, both at the same
 // reduced scale so the largest size still fits the row.
 final class ChogramStickerSizePreviewItem: ChogramBlockItem {
-    static let previewScale: CGFloat = 0.6
+    static let previewScale: CGFloat = 0.4
     static let standardSide: CGFloat = 184.0
 
     let percent: Int
@@ -158,7 +158,7 @@ final class ChogramStickerSizePreviewItemNode: ChogramBlockItemNode {
         let scale = ChogramStickerSizePreviewItem.previewScale
         let standardSide = floor(ChogramStickerSizePreviewItem.standardSide * scale)
         let side = floor(ChogramStickerSizePreviewItem.standardSide * CGFloat(item.percent) / 100.0 * scale)
-        let rightX = params.width - params.rightInset - 16.0
+        let rightX = (params.leftInset + params.width - params.rightInset + standardSide) * 0.5
         let bottomY = item.height - 12.0
 
         let standardFrame = CGRect(x: rightX - standardSide, y: bottomY - standardSide, width: standardSide, height: standardSide)
@@ -211,6 +211,17 @@ enum ChogramFormEntry: ItemListNodeEntry {
     case menuItem(Int32, Int32, String, String, Bool)
     case account(Int32, Int32, String, Int64, Bool)
     case stickerPreview(Int32, Int32, Int)
+
+    var searchTitle: String? {
+        switch self {
+        case let .toggle(_, _, title, _, _), let .disclosure(_, _, title, _, _),
+             let .slider(_, _, title, _, _, _, _), let .input(_, _, title, _, _, _),
+             let .menuItem(_, _, title, _, _):
+            return title
+        default:
+            return nil
+        }
+    }
 
     var section: ItemListSectionId {
         switch self {
@@ -271,13 +282,13 @@ enum ChogramFormEntry: ItemListNodeEntry {
         case let .footer(_, _, text):
             return ItemListTextItem(presentationData: presentationData, text: .plain(text), sectionId: sectionId)
         case let .toggle(_, _, title, keyPath, value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, maximumNumberOfLines: 2, sectionId: sectionId, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, maximumNumberOfLines: 0, sectionId: sectionId, style: .blocks, updated: { value in
                 arguments.store.update { $0[keyPath: keyPath] = value }
                 arguments.didUpdate(ChogramSettings.current)
             })
         case let .disclosure(_, _, title, label, key):
             // Wide custom fonts leave no room for a value beside the title, so the value goes under it.
-            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: title, label: label, labelStyle: label.isEmpty ? .text : .detailText, sectionId: sectionId, style: .blocks, action: {
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: title, label: label, labelStyle: label.isEmpty ? .text : .multilineDetailText, sectionId: sectionId, style: .blocks, action: {
                 arguments.open(key)
             })
         case let .slider(_, _, title, minValue, maxValue, value, keyPath):
@@ -291,7 +302,7 @@ enum ChogramFormEntry: ItemListNodeEntry {
             }, action: {
             })
         case let .menuItem(_, _, title, rawValue, value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, maximumNumberOfLines: 2, sectionId: sectionId, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, maximumNumberOfLines: 0, sectionId: sectionId, style: .blocks, updated: { value in
                 arguments.store.update { settings in
                     if value {
                         settings.hiddenMessageMenuItems.remove(rawValue)
@@ -301,7 +312,7 @@ enum ChogramFormEntry: ItemListNodeEntry {
                 }
             })
         case let .account(_, _, title, accountId, value):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, maximumNumberOfLines: 2, sectionId: sectionId, style: .blocks, updated: { value in
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, maximumNumberOfLines: 0, sectionId: sectionId, style: .blocks, updated: { value in
                 arguments.store.update { settings in
                     if value {
                         settings.ghostDisabledAccountIds.remove(accountId)
@@ -393,7 +404,16 @@ final class ChogramFormBuilder {
     }
 }
 
-func chogramFormController(context: AccountContext, store: ChogramSettingsStore, title: String, accounts: Signal<[ChogramFormAccount], NoError> = .single([]), didUpdate: @escaping (ChogramSettings) -> Void = { _ in }, build: @escaping (ChogramSettings, [ChogramFormAccount]) -> [ChogramFormEntry], open: @escaping (String, @escaping (ViewController) -> Void) -> Void = { _, _ in }) -> ViewController {
+func chogramSettingsInitialScroll(_ target: String?, titles: [String?]) -> ListViewScrollToItem? {
+    guard let target, let index = titles.firstIndex(where: { title in
+        title?.localizedCaseInsensitiveCompare(target) == .orderedSame
+    }), index > 0 else {
+        return nil
+    }
+    return ListViewScrollToItem(index: index, position: .top(12.0), animated: false, curve: .Default(duration: nil), directionHint: .Down)
+}
+
+func chogramFormController(context: AccountContext, store: ChogramSettingsStore, title: String, searchTarget: String? = nil, accounts: Signal<[ChogramFormAccount], NoError> = .single([]), didUpdate: @escaping (ChogramSettings) -> Void = { _ in }, build: @escaping (ChogramSettings, [ChogramFormAccount]) -> [ChogramFormEntry], open: @escaping (String, @escaping (ViewController) -> Void) -> Void = { _, _ in }) -> ViewController {
     var pushControllerImpl: ((ViewController) -> Void)?
 
     let arguments = ChogramFormArguments(store: store, didUpdate: didUpdate, open: { key in
@@ -410,7 +430,9 @@ func chogramFormController(context: AccountContext, store: ChogramSettingsStore,
     |> map { presentationData, settings, accounts -> (ItemListControllerState, (ItemListNodeState, Any)) in
         let presentationData = chogramPresentationData(presentationData)
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text(title), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
-        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: build(settings, accounts), style: .blocks, animateChanges: true)
+        let entries = build(settings, accounts)
+        let initialScroll = chogramSettingsInitialScroll(searchTarget, titles: entries.map(\.searchTitle))
+        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: entries, style: .blocks, initialScrollToItem: initialScroll, animateChanges: true)
         return (controllerState, (listState, arguments))
     }
 
@@ -427,20 +449,23 @@ func chogramFormController(context: AccountContext, store: ChogramSettingsStore,
 // MARK: - Picker screen
 
 private final class ChogramPickerArguments {
+    let context: AccountContext
     let select: (Int) -> Void
 
-    init(select: @escaping (Int) -> Void) {
+    init(context: AccountContext, select: @escaping (Int) -> Void) {
+        self.context = context
         self.select = select
     }
 }
 
 private enum ChogramPickerEntry: ItemListNodeEntry {
+    case preview(String)
     case option(Int32, String, Bool)
     case footer(String)
 
     var section: ItemListSectionId {
         switch self {
-        case .option:
+        case .preview, .option:
             return 0
         case .footer:
             return 1
@@ -449,6 +474,8 @@ private enum ChogramPickerEntry: ItemListNodeEntry {
 
     var stableId: Int32 {
         switch self {
+        case .preview:
+            return -1
         case let .option(index, _, _):
             return index
         case .footer:
@@ -463,6 +490,10 @@ private enum ChogramPickerEntry: ItemListNodeEntry {
     func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
         let arguments = arguments as! ChogramPickerArguments
         switch self {
+        case let .preview(fontName):
+            let font = UIFont(name: fontName, size: 18.0) ?? UIFont.monospacedSystemFont(ofSize: 18.0, weight: .regular)
+            let sample = NSAttributedString(string: "let chogram = true", font: font, textColor: presentationData.theme.list.itemPrimaryTextColor)
+            return ItemListTextItem(presentationData: presentationData, text: .custom(context: arguments.context, string: sample), sectionId: self.section)
         case let .option(index, title, checked):
             return ItemListCheckboxItem(presentationData: presentationData, systemStyle: .glass, title: title, style: .left, checked: checked, zeroSeparatorInsets: false, sectionId: self.section, action: {
                 arguments.select(Int(index))
@@ -473,8 +504,8 @@ private enum ChogramPickerEntry: ItemListNodeEntry {
     }
 }
 
-func chogramPickerController(context: AccountContext, store: ChogramSettingsStore, title: String, footer: String?, options: [(title: String, value: String)], current: @escaping (ChogramSettings) -> String, select: @escaping (inout ChogramSettings, String) -> Void) -> ViewController {
-    let arguments = ChogramPickerArguments(select: { index in
+func chogramPickerController(context: AccountContext, store: ChogramSettingsStore, title: String, footer: String?, options: [(title: String, value: String)], previewsCodeFont: Bool = false, current: @escaping (ChogramSettings) -> String, select: @escaping (inout ChogramSettings, String) -> Void) -> ViewController {
+    let arguments = ChogramPickerArguments(context: context, select: { index in
         let value = options[index].value
         store.update { settings in
             select(&settings, value)
@@ -489,7 +520,7 @@ func chogramPickerController(context: AccountContext, store: ChogramSettingsStor
         let presentationData = chogramPresentationData(presentationData)
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text(title), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
         let selected = current(settings)
-        var entries: [ChogramPickerEntry] = []
+        var entries: [ChogramPickerEntry] = previewsCodeFont ? [.preview(selected)] : []
         for (index, option) in options.enumerated() {
             entries.append(.option(Int32(index), option.title, option.value == selected))
         }
@@ -587,19 +618,17 @@ func chogramFormAccountsSignal(context: AccountContext) -> Signal<[ChogramFormAc
 
 func chogramGhostFormEntries(settings: ChogramSettings, accounts: [ChogramFormAccount]) -> [ChogramFormEntry] {
     let b = ChogramFormBuilder(firstId: 100, firstSection: 100)
-    guard settings.ghostMode else {
-        return []
-    }
-    b.toggle("Писать, не появляясь в сети", \.ghostSendScheduled, settings)
-    b.footer("Сообщение уходит как отложенное на пару секунд, поэтому ты не появляешься в сети.")
+    b.header("ИСТОРИИ И ОТПРАВКА")
     b.toggle("Спрашивать перед просмотром истории", \.ghostAskBeforeStory, settings)
-    b.gap()
-    b.toggle("Отдельно для каждого аккаунта", \.ghostPerAccount, settings)
-    if settings.ghostPerAccount && accounts.count > 1 {
-        b.footer("Выбери аккаунты, для которых режим призрака включён.")
+    if settings.ghostMode {
+        b.toggle("Писать, не появляясь в сети", \.ghostSendScheduled, settings)
+        b.footer("Сообщение уходит как отложенное на пару секунд, поэтому ты не появляешься в сети.")
         b.header("АККАУНТЫ")
-        for account in accounts {
-            b.account(account, settings)
+        b.toggle("Режим отдельно для каждого аккаунта", \.ghostPerAccount, settings)
+        if settings.ghostPerAccount {
+            for account in accounts {
+                b.account(account, settings)
+            }
         }
     }
     return b.entries
@@ -639,7 +668,7 @@ func chogramLooksFormEntries(settings: ChogramSettings) -> [ChogramFormEntry] {
     return b.entries
 }
 
-func chogramOpenLooksForm(key: String, context: AccountContext, store: ChogramSettingsStore, push: @escaping (ViewController) -> Void) {
+func chogramOpenLooksForm(key: String, context: AccountContext, store: ChogramSettingsStore, searchTarget: String? = nil, push: @escaping (ViewController) -> Void) {
     switch key {
     case "chatListTitle":
         let options: [(title: String, value: String)] = [
@@ -655,13 +684,13 @@ func chogramOpenLooksForm(key: String, context: AccountContext, store: ChogramSe
             settings.chatListTitle = ChogramSettings.ChatListTitle(rawValue: Int(value) ?? 0) ?? .standard
         }))
     case "monospaceFont":
-        push(chogramPickerController(context: context, store: store, title: "Шрифт кода", footer: nil, options: chogramMonospaceChoices(), current: { settings in
+        push(chogramPickerController(context: context, store: store, title: "Шрифт кода", footer: nil, options: chogramMonospaceChoices(), previewsCodeFont: true, current: { settings in
             return settings.monospaceFontName
         }, select: { settings, value in
             settings.monospaceFontName = value
         }))
     case "cleanup":
-        push(chogramFormController(context: context, store: store, title: "Убрать лишнее", build: { settings, _ in
+        push(chogramFormController(context: context, store: store, title: "Убрать лишнее", searchTarget: searchTarget, build: { settings, _ in
             let b = ChogramFormBuilder()
             b.toggle("Кнопку «Поделиться» сбоку", \.hideShareButton, settings)
             b.toggle("Отправить как канал", \.hideSendAsChannel, settings)
@@ -679,8 +708,30 @@ func chogramOpenLooksForm(key: String, context: AccountContext, store: ChogramSe
 
 // MARK: - Screens
 
-func chogramProtectionController(context: AccountContext, store: ChogramSettingsStore) -> ViewController {
-    return chogramFormController(context: context, store: store, title: "Защита", build: { settings, _ in
+func chogramProfilesController(context: AccountContext, store: ChogramSettingsStore, searchTarget: String? = nil) -> ViewController {
+    var sharesPresence = ChogramSettings.current.shareChogramPresence
+    return chogramFormController(context: context, store: store, title: "Профили", searchTarget: searchTarget, didUpdate: { settings in
+        if sharesPresence != settings.shareChogramPresence {
+            sharesPresence = settings.shareChogramPresence
+            ChogramPresence.shared.syncOwnPresence(accountPeerId: context.account.peerId)
+        }
+    }, build: { settings, _ in
+        let b = ChogramFormBuilder()
+        b.header("ЧУЖИЕ ПРОФИЛИ")
+        b.toggle("Показывать ID и дата-центр", \.showProfileDetails, settings)
+        b.footer("В профилях, которые ты открываешь, появятся ID, дата-центр и примерная дата создания аккаунта, если она доступна.")
+        b.header("МОЙ ПРОФИЛЬ")
+        b.toggle("Видно, что я в Чограме", \.shareChogramPresence, settings)
+        b.toggle("Скрыть мой номер на экране", \.hidePhoneNumber, settings)
+        b.footer("Отметка видна другим пользователям Чограма. Для неё сервер получает ID аккаунта. Скрытие номера меняет только его отображение на твоём экране.")
+        b.header("ГРУППЫ")
+        b.toggle("Скрывать заблокированных в группах", \.hideBlockedInGroups, settings)
+        return b.entries
+    })
+}
+
+func chogramProtectionController(context: AccountContext, store: ChogramSettingsStore, searchTarget: String? = nil) -> ViewController {
+    return chogramFormController(context: context, store: store, title: "Защита", searchTarget: searchTarget, build: { settings, _ in
         let b = ChogramFormBuilder()
         b.toggle("Разрешить скриншоты и запись экрана", \.allowScreenshots, settings)
         b.toggle("Сохранять фото и видео с таймером", \.saveViewOnceMedia, settings)
@@ -690,8 +741,8 @@ func chogramProtectionController(context: AccountContext, store: ChogramSettings
     })
 }
 
-func chogramMessageMenuController(context: AccountContext, store: ChogramSettingsStore) -> ViewController {
-    return chogramFormController(context: context, store: store, title: "Меню сообщения", build: { settings, _ in
+func chogramMessageMenuController(context: AccountContext, store: ChogramSettingsStore, searchTarget: String? = nil) -> ViewController {
+    return chogramFormController(context: context, store: store, title: "Меню сообщения", searchTarget: searchTarget, build: { settings, _ in
         let b = ChogramFormBuilder()
         b.header("TELEGRAM")
         for item in ChogramMessageMenuItem.allCases where !item.isChogramItem {
@@ -706,8 +757,8 @@ func chogramMessageMenuController(context: AccountContext, store: ChogramSetting
     })
 }
 
-func chogramChatsController(context: AccountContext, store: ChogramSettingsStore) -> ViewController {
-    return chogramFormController(context: context, store: store, title: "Чаты", build: { settings, _ in
+func chogramChatsController(context: AccountContext, store: ChogramSettingsStore, searchTarget: String? = nil) -> ViewController {
+    return chogramFormController(context: context, store: store, title: "Чаты", searchTarget: searchTarget, build: { settings, _ in
         let b = ChogramFormBuilder()
         b.toggle("Чаты как группа", \.personalChatAsGroup, settings)
         b.toggle("Ник в заголовке", \.usernameInHeader, settings)
@@ -759,8 +810,8 @@ func chogramChatsController(context: AccountContext, store: ChogramSettingsStore
     })
 }
 
-func chogramMediaController(context: AccountContext, store: ChogramSettingsStore) -> ViewController {
-    return chogramFormController(context: context, store: store, title: "Медиа", didUpdate: { settings in
+func chogramMediaController(context: AccountContext, store: ChogramSettingsStore, searchTarget: String? = nil) -> ViewController {
+    return chogramFormController(context: context, store: store, title: "Медиа", searchTarget: searchTarget, didUpdate: { settings in
         UserDefaults.standard.set(settings.photoWithoutCompression, forKey: "TG_photoHighQuality_v0")
         // 5 is the "very high" video preset, 0 lets Telegram pick.
         UserDefaults.standard.set(settings.videoWithoutCompression ? 5 : 0, forKey: "TG_preferredVideoPreset_v0")

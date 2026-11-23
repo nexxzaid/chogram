@@ -340,7 +340,9 @@ public class ItemListSwitchItemNode: ListViewItemNode, ItemListItemNode {
                 insets.bottom = 0.0
             }
             
-            let (titleLayout, titleApply) = makeTitleLayout(TextNodeLayoutArguments(attributedString: NSAttributedString(string: item.title, font: titleFont, textColor: item.presentationData.theme.list.itemPrimaryTextColor), backgroundColor: nil, maximumNumberOfLines: item.maximumNumberOfLines, truncationType: .end, constrainedSize: CGSize(width: params.width - leftInset - params.rightInset - 64.0, height: CGFloat.greatestFiniteMagnitude), alignment: .natural, cutout: nil, insets: UIEdgeInsets()))
+            // Multiline rows need to clear the wider glass switch, including its trailing inset.
+            let titleTrailingInset: CGFloat = item.maximumNumberOfLines == 0 && item.systemStyle == .glass ? 92.0 : 64.0
+            let (titleLayout, titleApply) = makeTitleLayout(TextNodeLayoutArguments(attributedString: NSAttributedString(string: item.title, font: titleFont, textColor: item.presentationData.theme.list.itemPrimaryTextColor), backgroundColor: nil, maximumNumberOfLines: item.maximumNumberOfLines, truncationType: .end, constrainedSize: CGSize(width: max(1.0, params.width - leftInset - params.rightInset - titleTrailingInset), height: CGFloat.greatestFiniteMagnitude), alignment: .natural, cutout: nil, insets: UIEdgeInsets()))
             
             contentSize.height = max(contentSize.height, titleLayout.size.height + topInset * 2.0)
             
